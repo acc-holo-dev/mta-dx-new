@@ -49,7 +49,7 @@ local function isinstance(obj, cls)
     return false
 end
 
-return {
-    define    = define,
-    isinstance = isinstance,
-}
+-- публикация в глобальный namespace (MTA не имеет require; порядок — meta.xml)
+if _G.DXUI == nil then _G.DXUI = {} end
+_G.DXUI.class = { define = define, isinstance = isinstance }
+return _G.DXUI.class

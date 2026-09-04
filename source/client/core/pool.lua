@@ -46,6 +46,7 @@ function Pool:size()
     return #self._free
 end
 
-return {
-    new = new,
-}
+-- публикация в глобальный namespace (MTA не имеет require; порядок — meta.xml)
+if _G.DXUI == nil then _G.DXUI = {} end
+_G.DXUI.pool = { new = new }
+return _G.DXUI.pool

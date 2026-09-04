@@ -96,4 +96,7 @@ function Log._test()
     return LEVELS, current
 end
 
+-- публикация в глобальный namespace (MTA не имеет require; порядок — meta.xml)
+if _G.DXUI == nil then _G.DXUI = {} end
+_G.DXUI.log = Log
 return Log

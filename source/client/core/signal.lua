@@ -175,7 +175,7 @@ local function setDevMode(dev, errSink)
     onError = errSink
 end
 
-return {
-    new        = Signal.new,
-    setDevMode = setDevMode,
-}
+-- публикация в глобальный namespace (MTA не имеет require; порядок — meta.xml)
+if _G.DXUI == nil then _G.DXUI = {} end
+_G.DXUI.signal = { new = Signal.new, setDevMode = setDevMode }
+return _G.DXUI.signal
