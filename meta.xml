@@ -13,6 +13,12 @@
     <script src="source/client/node/node.lua" type="client" cache="false" />
     <script src="source/client/node/tree_ops.lua" type="client" cache="false" />
     <script src="source/client/render/canvas.lua" type="client" cache="false" />
+    <script src="source/client/layout/lay.lua" type="client" cache="false" />
+    <script src="source/client/layout/constraints.lua" type="client" cache="false" />
+    <script src="source/client/layout/flex.lua" type="client" cache="false" />
+    <script src="source/client/layout/grid.lua" type="client" cache="false" />
+    <script src="source/client/layout/anchors.lua" type="client" cache="false" />
+    <script src="source/client/layout/measure.lua" type="client" cache="false" />
     <script src="source/client/render/backend_mta.lua" type="client" cache="false" />
     <script src="source/client/boot.lua" type="client" cache="false" />
     <settings>
