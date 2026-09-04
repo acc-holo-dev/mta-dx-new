@@ -7,6 +7,7 @@ return _G.DXUI.registry.define {
     schema = {
         color = {
             type = "number", default = P.bg, invalidates = { _G.DXUI.prop.DIRTY.RENDER },
+            token = "bg",
             doc = "Цвет фона панели (упакованное число)",
         },
         radius = {

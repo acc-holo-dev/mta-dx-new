@@ -18,6 +18,7 @@ return _G.DXUI.registry.define {
         },
         boxColor = {
             type = "number", default = P.accent, invalidates = { prop.DIRTY.RENDER },
+            token = "accent",
             doc = "Цвет отметенного состояния",
         },
     },

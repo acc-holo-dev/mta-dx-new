@@ -109,6 +109,14 @@ function prop.compile(name, schema)
             doc         = spec.doc or "",
             invalidates = {},
         }
+        -- привязка к токену темы (style/theme батчево обновляет default)
+        if spec.token ~= nil then
+            entry.token = spec.token
+        end
+        -- переход (style/transitions): запись твинит вместо прыжка
+        if spec.transition ~= nil then
+            entry.transition = spec.transition
+        end
         if spec.invalidates then
             for _, f in ipairs(spec.invalidates) do
                 entry.invalidates[#entry.invalidates + 1] = f
@@ -127,7 +135,28 @@ local function devError(msg)
     end
 end
 
--- установка значения через схему; возвращает true, если значение изменилось
+-- установка значения напрямую (твины пишут так: без планирования переходов)
+local function forceSet(node, key, value)
+    local inod = node._
+    local spec = inod.schema[key]
+    local data = inod.data
+    if data[key] == value then
+        return false
+    end
+    if spec.transform then
+        value = spec.transform(value, node)
+    end
+    data[key] = value
+    local inv = spec.invalidates
+    for i = 1, #inv do
+        mark(node, inv[i])
+    end
+    return true
+end
+
+-- установка значения через схему; возвращает true, если значение изменилось.
+-- Свойство с transition = { duration, easing } не прыгает: prop.set
+-- планирует твин (anim/tween), интерполяция идёт через ту же систему.
 function prop.set(node, key, value)
     local inod = node._
     local spec = inod.schema[key]
@@ -137,7 +166,7 @@ function prop.set(node, key, value)
     end
     if not checkType(spec.type, value) then
         devError(("dxui: %s.%s expects %s, got %s"):format(
-            tostring(inod.widgetType), tostring(key), tostring(spec.type), type(value)))
+            tostring(inod.widgetType), tostring(key), spec.type, type(value)))
         return false
     end
     if spec.transform then
@@ -146,6 +175,16 @@ function prop.set(node, key, value)
     local data = inod.data
     if data[key] == value then
         return false -- равное значение не инвалидирует
+    end
+    local tweener = _G.DXUI.tween
+    if spec.transition ~= nil and tweener ~= nil then
+        local tweening = inod.tweening
+        if tweening == nil or not tweening[key] then
+            tweener.transitionTo(node, key, value, spec.transition)
+            return true
+        end
+        -- интерполяция идёт: твин сам дожмёт до целевого значения
+        return false
     end
     data[key] = value
     local inv = spec.invalidates
@@ -176,6 +215,7 @@ end
 prop.mark = mark
 prop.removeFromLists = removeFromLists
 prop.setDevMode = setDevMode
+prop.forceSet = forceSet
 
 -- публикация в глобальный namespace (MTA не имеет require; порядок — meta.xml)
 if _G.DXUI == nil then _G.DXUI = {} end

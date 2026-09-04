@@ -88,6 +88,8 @@ dispatcher.install()
 local function onFrame()
     -- ввод один раз за кадр ДО пасса раскладки (task.md §3.4)
     dispatcher.dispatch(frame.roots())
+    -- твины: единый клок, никаких таймеров в виджетах (task.md §5)
+    DXUI.tween.tick()
     frame.run(canvas)
     canvas:drain(backend)
 end
@@ -95,6 +97,31 @@ end
 -- единственный обработчик кадра; приоритет — из настроек
 addEventHandler("onClientRender", root, onFrame, false,
     settings.priority == "low" and "low" or settings.priority)
+
+-- ---------------------------------------------------------------- hot-reload
+-- dev: перечитываем тему по таймеру (файл = таблица переопределений токенов)
+
+if settings.debug then
+    local hot = {}
+    DXUI.theme.define("hot", {})
+    setTimer(function()
+        if fileExists("hot-theme.lua") then
+            local f = fileOpen("hot-theme.lua")
+            if f then
+                local src = fileRead(f, fileGetSize(f))
+                fileClose(f)
+                local chunk = loadstring(src)
+                if chunk then
+                    local ok, result = pcall(chunk)
+                    if ok and type(result) == "table" then
+                        DXUI.theme.apply(result)
+                    end
+                end
+            end
+        end
+    end, 2000, 0)
+    hot = nil
+end
 
 DXUI.boot = {
     version = "0.1.0",

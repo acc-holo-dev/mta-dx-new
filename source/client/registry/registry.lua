@@ -70,6 +70,8 @@ function registry.define(spec)
     local schema = compileSchema(spec)
 
     rawset(WidgetClass, "_widgetSpec", spec)
+    -- style/theme батчево обновляет дефолты token-аннотированных свойств
+    rawset(WidgetClass, "_compiledSchema", schema)
 
     -- методы из спецификации (select, toggle, ...) становятся методами класса;
     -- reserved: поля реестра, не методы виджета

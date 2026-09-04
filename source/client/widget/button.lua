@@ -26,10 +26,12 @@ return _G.DXUI.registry.define {
         },
         color = {
             type = "number", default = P.accent, invalidates = { prop.DIRTY.RENDER },
+            token = "accent",
             doc = "Цвет фона кнопки",
         },
         textColor = {
             type = "number", default = P.white, invalidates = { prop.DIRTY.RENDER },
+            token = "white",
             doc = "Цвет надписи",
         },
     },

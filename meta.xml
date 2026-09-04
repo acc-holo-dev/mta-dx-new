@@ -28,6 +28,12 @@
     <script src="source/client/input/focus.lua" type="client" cache="false" />
     <script src="source/client/input/dispatcher.lua" type="client" cache="false" />
     <script src="source/client/text/editor.lua" type="client" cache="false" />
+    <script src="source/client/style/tokens.lua" type="client" cache="false" />
+    <script src="source/client/style/theme.lua" type="client" cache="false" />
+    <script src="source/client/style/states.lua" type="client" cache="false" />
+    <script src="source/client/style/transitions.lua" type="client" cache="false" />
+    <script src="source/client/anim/easing.lua" type="client" cache="false" />
+    <script src="source/client/anim/tween.lua" type="client" cache="false" />
     <script src="source/client/widget/palette.lua" type="client" cache="false" />
     <script src="source/client/widget/button.lua" type="client" cache="false" />
     <script src="source/client/widget/checkbox.lua" type="client" cache="false" />

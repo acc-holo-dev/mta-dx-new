@@ -11,6 +11,7 @@ return _G.DXUI.registry.define {
         },
         color = {
             type = "number", default = P.text, invalidates = { _G.DXUI.prop.DIRTY.RENDER },
+            token = "text",
             doc = "Цвет текста",
         },
     },

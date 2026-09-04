@@ -55,6 +55,14 @@ LAYERS = [
     "input/dispatcher.lua",
     # text/
     "text/editor.lua",
+    # style/ (токены и темы поверх палитры; theme батчит дефолты в runtime)
+    "style/tokens.lua",
+    "style/theme.lua",
+    "style/states.lua",
+    "style/transitions.lua",
+    # anim/
+    "anim/easing.lua",
+    "anim/tween.lua",
     # widget/ (palette — первым: цвета схемы по умолчанию)
     "widget/palette.lua",
 ]
