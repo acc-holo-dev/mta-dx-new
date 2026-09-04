@@ -1,0 +1,11 @@
+-- DXUI v2 — корневой meta.xml ресурса фреймворка.
+-- ФАЙЛ ГЕНЕРИРУЕТСЯ командой `debug/main.py build` из порядка зависимостей.
+-- Ручные правки будут потеряны; порядок загрузки задаётся require-цепочкой boot.lua.
+
+<meta>
+    <info author="DXUI" name="dxui" version="2.0.0" type="script" />
+    <script src="source/client/boot.lua" type="client" cache="false" />
+    <settings>
+        <setting name="dxui_debug" value="#true" />
+    </settings>
+</meta>
