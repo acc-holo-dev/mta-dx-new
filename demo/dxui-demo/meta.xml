@@ -1,0 +1,15 @@
+<meta>
+    <info author="DXUI" name="dxui-demo" version="0.1.0" type="script" />
+    <!--
+        Демо-ресурс DXUI v2 (task.md §9.2). Только фасад import(2).
+        Запуск в игре:
+          /dxuidemo <login|inventory|hud|bank|themes|off>
+    -->
+    <include resource="dxui" />
+    <script src="login.lua" type="client" />
+    <script src="inventory.lua" type="client" />
+    <script src="hud.lua" type="client" />
+    <script src="bank.lua" type="client" />
+    <script src="themes.lua" type="client" />
+    <script src="client.lua" type="client" />
+</meta>

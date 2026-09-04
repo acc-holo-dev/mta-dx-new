@@ -3,29 +3,66 @@
 -- Контракт:
 --   local ui = loadstring(exports.dxui:import(2))()
 --
--- Экспорт возвращает КОД-СТРОКУ один раз (P3: функции не сериализуются
--- через границу экспортов). Клиентские ресурсы MTA живут в одном Lua VM,
--- поэтому исполненная строка собирает фасад поверх _G.DXUI: потребитель
--- не получает ни одного внутреннего файла, только стабильную поверхность.
+-- Клиентские ресурсы MTA живут в РАЗДЕЛЬНЫХ Lua VM, поэтому функции и
+-- таблицы через границу экспортов не проходят (P3) — только код-строка.
+-- import(2) возвращает код, который СОДЕРЖИТ ВЕСЬ фреймворк (bundle из
+-- api/bundle.lua, генерируется `python dxui.py build`) + мост платформы +
+-- фасад ui. Потребитель исполняет строку ОДИН РАЗ (повторное исполнение
+-- в той же VM — ошибка схемы виджетов) и получает готовый API.
 --
--- Стабильность: с G7 — 0 нарушающих изменений возвращаемой строки
--- (контрактный тест: test_api_debug.lua).
+-- В кадре — ноль exports (P2): после исполнения все ссылки локальны.
 
-local registry = _G.DXUI.registry
-local frame = _G.DXUI.frame
+local BUNDLE = _G.DXUIBundle
 
 local VERSION = 2
 
+if BUNDLE == nil then
+    error("dxui: api/bundle.lua не сгенерирован — выполните `python dxui.py build`", 2)
+end
+
 local api = {}
 
-local SCHEMA = [==[
+-- Мост платформы + фасад. Исполняется в VM потребителя ПОСЛЕ bundle:
+-- к этому моменту _G.DXUI собран полностью.
+local GLUE = [==[
 local DXUI = _G.DXUI
 local registry = DXUI.registry
 local frame = DXUI.frame
 
-local ui = { version = %d }
+-- клок
+DXUI.time.setSource(function()
+    return getTickCount()
+end)
 
--- конструктор-фабрика: ui.Window { ... } — корень кадра
+-- мост ввода: очередь событий платформы
+addEventHandler("onClientClick", root, function(button, state, x, y)
+    DXUI.dispatcher.enqueue("click", button, state, x, y)
+end)
+addEventHandler("onClientCursorMove", function(_, _, x, y)
+    DXUI.dispatcher.enqueue("move", x, y)
+end)
+addEventHandler("onClientKey", function(key, down)
+    DXUI.dispatcher.enqueue("key", key, down)
+end)
+addEventHandler("onClientCharacter", root, function(ch)
+    DXUI.dispatcher.enqueue("char", ch)
+end)
+addEventHandler("onClientMouseWheel", function(dx, dy)
+    DXUI.dispatcher.enqueue("wheel", dx, dy)
+end)
+
+-- кадр потребителя: ввод → твины → раскладка → холст
+local canvas = DXUI.canvas.new()
+addEventHandler("onClientRender", root, function()
+    DXUI.dispatcher.dispatch(frame.roots())
+    DXUI.tween.tick()
+    frame.run(canvas)
+    canvas:drain(DXUI.backend_mta)
+end)
+
+-- фасад: ui.<Widget> { ... } — корень кадра
+local ui = { version = 2 }
+
 local function make(name)
     return function(props)
         props = props or {}
@@ -35,30 +72,13 @@ local function make(name)
     end
 end
 
--- ребёнок: ui.Window { children = { ui.Button{...} } } — addChild
--- детьми прямо из конструктора (registry.create), в кадр добавлять нельзя.
-local function child(name)
-    return function(props)
-        return registry.create(name, props or {})
-    end
+for _, name in ipairs(registry.names()) do
+    ui[name] = make(name)
 end
 
-local function exportAll()
-    local out = {}
-    for _, name in ipairs(registry.names()) do
-        out[name] = make(name)
-    end
-    return out
-end
-
-for name, factory in pairs(exportAll()) do
-    ui[name] = factory
-end
-
--- производные API поверх стабильной поверхности
-ui.animation = DXUI.tween        -- to/timeline/after (единый клок)
-ui.theme = DXUI.theme            -- apply/applyNamed/define
-ui.registry = registry           -- advanced: define для новых виджетов
+ui.animation = DXUI.tween
+ui.theme = DXUI.theme
+ui.registry = registry
 
 return ui
 ]==]
@@ -68,7 +88,7 @@ function api.import(version)
         error(("dxui: import(%s): поддерживается версия %d")
             :format(tostring(version), VERSION), 2)
     end
-    return SCHEMA:format(VERSION)
+    return BUNDLE .. "\n" .. GLUE
 end
 
 if _G.DXUI == nil then _G.DXUI = {} end

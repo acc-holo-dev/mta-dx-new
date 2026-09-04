@@ -70,8 +70,10 @@ LAYERS = [
 # каталоги виджетов: 1 файл = 1 виджет, порядок алфавитный
 WIDGET_DIR = "widget"
 
-# api/ и debug/ грузятся после виджетов: фасад и инспектор поверх registry
+# api/ и debug/ грузятся после виджетов: фасад и инспектор поверх registry.
+# api/bundle.lua — сгенерированная строка исходников для import(2).
 POST_WIDGETS = [
+    "api/bundle.lua",
     "api/exports.lua",
     "debug/inspector.lua",
     "debug/profiler.lua",
@@ -99,6 +101,19 @@ def boot_order():
 
 # ------------------------------------------------------------------ build
 
+BUNDLE_PATH = os.path.join("api", "bundle.lua")
+BUNDLE_LEVEL = 8  # [=========[ ... ]=========]
+
+
+def bundle_files():
+    """Модули, входящие в import(2): всё кроме boot.lua и api/ (они —
+    для собственного инстанса dxui-ресурса; потребителю нужен свой мост)."""
+    for rel in boot_order():
+        if rel == "boot.lua" or rel.startswith("api/"):
+            continue
+        yield rel
+
+
 def cmd_build():
     lines = ["<meta>",
              '    <info author="DXUI" name="dxui" version="0.1.0" type="script" />',
@@ -119,7 +134,35 @@ def cmd_build():
     lines.append("</meta>")
     with open(os.path.join(ROOT, "meta.xml"), "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(lines) + "\n")
-    print("meta.xml: %d файлов" % sum(1 for l in lines if "<script" in l))
+
+    # api/bundle.lua: исходники всех модулей одной строкой для import(2).
+    # Клиентские ресурсы MTA — раздельные Lua VM: потребитель исполняет
+    # код-строку в своей VM (см. api/exports.lua).
+    chunks = []
+    for rel in bundle_files():
+        with open(os.path.join(SOURCE, rel), "r", encoding="utf-8") as f:
+            src = f.read()
+        if "]=" + "=" * BUNDLE_LEVEL + "]" in src:
+            raise SystemExit("bundle: %s использует слишком высокий уровень длинных скобок" % rel)
+        # каждый файл — IIFE: его `return` не рвёт общий chunk
+        chunks.append("(function()\n" + src + "\nend)();\n")
+    body = "".join(chunks)
+    open_n = "[" + "=" * BUNDLE_LEVEL + "["
+    close_n = "]" + "=" * BUNDLE_LEVEL + "]"
+    bundle = (
+        "-- api/bundle.lua — СГЕНЕРИРОВАН `python dxui.py build`. Не править руками.\n"
+        "-- Исходники всех модулей одной строкой: их исполняет потребитель import(2)\n"
+        "-- в собственной Lua VM (MTA-ресурсы изолированы, P2/P3 из task.md).\n\n"
+        "local BUNDLE = " + open_n + "\n" + body + close_n + "\n"
+        + "if _G.DXUI == nil then _G.DXUI = {} end\n"
+        + "_G.DXUIBundle = BUNDLE\n"
+        + "return BUNDLE\n"
+    )
+    with open(os.path.join(SOURCE, BUNDLE_PATH), "w", encoding="utf-8", newline="\n") as f:
+        f.write(bundle)
+
+    print("meta.xml: %d файлов | bundle: %d модулей"
+          % (sum(1 for l in lines if "<script" in l), len(chunks)))
     return 0
 
 
@@ -144,8 +187,9 @@ MTA_CALL = re.compile(
 
 
 def strip_literals(text):
-    text = re.sub(r"\[\[.*?\]\]", "", text, flags=re.S)
-    text = re.sub(r"--\[\[.*?\]\]", "", text, flags=re.S)
+    # длинные скобки любого уровня: --[==[ ... ]==] и [=====[ ... ]=====]
+    text = re.sub(r"--\[(=*)\[.*?\]\1\]", "", text, flags=re.S)
+    text = re.sub(r"\[(=*)\[.*?\]\1\]", "", text, flags=re.S)
     text = re.sub(r"--[^\n]*", "", text)
     text = re.sub(r'"(?:\\.|[^"\\])*"', '""', text)
     text = re.sub(r"'(?:\\.|[^'\\])*'", "''", text)

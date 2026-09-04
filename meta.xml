@@ -57,6 +57,7 @@
     <script src="source/client/widget/tooltip.lua" type="client" cache="false" />
     <script src="source/client/widget/treelist.lua" type="client" cache="false" />
     <script src="source/client/widget/window.lua" type="client" cache="false" />
+    <script src="source/client/api/bundle.lua" type="client" cache="false" />
     <script src="source/client/api/exports.lua" type="client" cache="false" />
     <script src="source/client/debug/inspector.lua" type="client" cache="false" />
     <script src="source/client/debug/profiler.lua" type="client" cache="false" />
