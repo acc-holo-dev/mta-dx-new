@@ -93,7 +93,21 @@ local function isinstance(obj, cls)
     return false
 end
 
+-- methodOf(obj, name): метод по цепочке КЛАССОВ без prop.get-фолбэка Node.
+-- Обычное чтение obj.name для несуществующего метода уходит в систему
+-- свойств и бросает "property does not exist" — здесь безопасный nil.
+-- Для диспетчера ввода: focused.inputKey как ГАРД прочесть нельзя.
+local function methodOf(obj, name)
+    local cur = getmetatable(obj)
+    while cur do
+        local v = rawget(cur, name)
+        if v ~= nil then return v end
+        cur = rawget(cur, "__super")
+    end
+    return nil
+end
+
 -- публикация в глобальный namespace (MTA не имеет require; порядок — meta.xml)
 if _G.DXUI == nil then _G.DXUI = {} end
-_G.DXUI.class = { define = define, isinstance = isinstance }
+_G.DXUI.class = { define = define, isinstance = isinstance, methodOf = methodOf }
 return _G.DXUI.class

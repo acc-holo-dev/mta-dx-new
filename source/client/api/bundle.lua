@@ -99,9 +99,23 @@ local function isinstance(obj, cls)
     return false
 end
 
+-- methodOf(obj, name): метод по цепочке КЛАССОВ без prop.get-фолбэка Node.
+-- Обычное чтение obj.name для несуществующего метода уходит в систему
+-- свойств и бросает "property does not exist" — здесь безопасный nil.
+-- Для диспетчера ввода: focused.inputKey как ГАРД прочесть нельзя.
+local function methodOf(obj, name)
+    local cur = getmetatable(obj)
+    while cur do
+        local v = rawget(cur, name)
+        if v ~= nil then return v end
+        cur = rawget(cur, "__super")
+    end
+    return nil
+end
+
 -- публикация в глобальный namespace (MTA не имеет require; порядок — meta.xml)
 if _G.DXUI == nil then _G.DXUI = {} end
-_G.DXUI.class = { define = define, isinstance = isinstance }
+_G.DXUI.class = { define = define, isinstance = isinstance, methodOf = methodOf }
 return _G.DXUI.class
 
 end)();
@@ -2574,6 +2588,10 @@ local table_remove = table.remove
 
 local DXUI = _G.DXUI
 
+-- безопасный поиск метода: чтение focused.inputKey напрямую уходит в
+-- prop.get-фолбэк и бросает "property does not exist" (MTA-сессия).
+local methodOf = DXUI.class.methodOf
+
 local dispatcher = {}
 
 local LONG_PRESS_MS = 500
@@ -2631,6 +2649,9 @@ end
 
 -- собирает интерактивные узлы дерева в пространственный хеш.
 -- Геометрия lay = прошлый кадр: dispatch() зовётся ДО пасса раскладки.
+-- ВАЖНО: ранние выходы возвращают order — иначе order у родителя станет
+-- nil (collect = единственный источник порядка) и следующий интерактивный
+-- узел упадёт на order + 1.
 local function isInteractive(node)
     local spec = rawget(node, "_renderSpec")
     if spec == nil then return false end
@@ -2641,10 +2662,10 @@ end
 
 local function collect(node, ox, oy, order)
     local inod = rawget(node, "_")
-    if inod == nil then return end
-    if inod.data.visible == false then return end
+    if inod == nil then return order end
+    if inod.data.visible == false then return order end
     local l = inod.lay
-    if l == nil then return end
+    if l == nil then return order end
     local wx = ox + l.x
     local wy = oy + l.y
     if isInteractive(node) then
@@ -2753,15 +2774,17 @@ local function onKey(key, down)
         if focused == nil then return end
         if DXUI.focus.isEditing() and DXUI.focus.isEditable(focused) then
             -- стрелка не выводит из поля (§3.5)
-            if focused.inputKey then focused:inputKey(key, false) end
+            local inputKey = methodOf(focused, "inputKey")
+            if inputKey then inputKey(focused, key, false) end
             return
         end
         -- обход по дереву раскладки: вверх/вниз = сосед
         local dir = (key == "arrow_u" or key == "arrow_l") and -1 or 1
         DXUI.focus.navigate(dispatcher.roots, dir)
     else
-        if focused ~= nil and focused.inputKey then
-            focused:inputKey(key, false)
+        if focused ~= nil then
+            local inputKey = methodOf(focused, "inputKey")
+            if inputKey then inputKey(focused, key, false) end
         end
     end
 end
@@ -2769,8 +2792,9 @@ end
 local function onCharacter(ch)
     local focused = DXUI.focus.get()
     if focused == nil then return end
-    if focused.inputCharacter then
-        focused:inputCharacter(ch)
+    local inputCharacter = methodOf(focused, "inputCharacter")
+    if inputCharacter then
+        inputCharacter(focused, ch)
     end
 end
 
