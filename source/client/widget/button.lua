@@ -31,7 +31,7 @@ return _G.DXUI.registry.define {
             doc = "Цвет надписи",
         },
     },
-    required = { "text" },
+    required = { "text", "onPress" },
     render = function(self, canvas, x, y)
         local l = rawget(self, "_").lay
         local bg = self.color

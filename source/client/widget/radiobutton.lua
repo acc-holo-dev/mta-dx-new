@@ -3,13 +3,14 @@
 local P = _G.DXUI.palette
 local prop = _G.DXUI.prop
 
--- группа: value -> radio widget; переключение снимает прочих
+-- группа: radio widget (weak) -> true; переключение снимает прочих.
+-- Слабые ключи: сборщик убирает уничтоженные виджеты сам.
 local groups = {}
 
 local function groupOf(name)
     local g = groups[name]
     if g == nil then
-        g = {}
+        g = setmetatable({}, { __mode = "k" })
         groups[name] = g
     end
     return g
@@ -32,8 +33,7 @@ local spec = _G.DXUI.registry.define {
         },
     },
     init = function(self)
-        local name = tostring(self)
-        groupOf("default")[name] = self
+        groupOf(self.radioGroup)[self] = true
     end,
     render = function(self, canvas, x, y)
         local l = rawget(self, "_").lay
@@ -51,10 +51,9 @@ local spec = _G.DXUI.registry.define {
 
 -- сигнал смены выбора в группе
 function spec:select()
-    local groupName = self.radioGroup
-    local g = groupOf(groupName)
+    local g = groupOf(self.radioGroup)
     -- снять прочих
-    for _, other in pairs(g) do
+    for other in pairs(g) do
         if other ~= self then
             other.selected = false
         end

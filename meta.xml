@@ -2,7 +2,7 @@
     <info author="DXUI" name="dxui" version="0.1.0" type="script" />
     <!--
         Порядок загрузки = порядок зависимостей.
-        Файл генерируется: debug/main.py build. Ручные правки будут потеряны.
+        Файл генерируется: python dxui.py build. Ручные правки будут потеряны.
     -->
     <script src="source/client/core/class.lua" type="client" cache="false" />
     <script src="source/client/core/log.lua" type="client" cache="false" />
@@ -12,14 +12,42 @@
     <script src="source/client/node/prop.lua" type="client" cache="false" />
     <script src="source/client/node/node.lua" type="client" cache="false" />
     <script src="source/client/node/tree_ops.lua" type="client" cache="false" />
-    <script src="source/client/render/canvas.lua" type="client" cache="false" />
     <script src="source/client/layout/lay.lua" type="client" cache="false" />
     <script src="source/client/layout/constraints.lua" type="client" cache="false" />
     <script src="source/client/layout/flex.lua" type="client" cache="false" />
     <script src="source/client/layout/grid.lua" type="client" cache="false" />
     <script src="source/client/layout/anchors.lua" type="client" cache="false" />
     <script src="source/client/layout/measure.lua" type="client" cache="false" />
+    <script src="source/client/registry/base.lua" type="client" cache="false" />
+    <script src="source/client/registry/registry.lua" type="client" cache="false" />
+    <script src="source/client/render/canvas.lua" type="client" cache="false" />
     <script src="source/client/render/backend_mta.lua" type="client" cache="false" />
+    <script src="source/client/render/backend_headless.lua" type="client" cache="false" />
+    <script src="source/client/render/frame.lua" type="client" cache="false" />
+    <script src="source/client/text/editor.lua" type="client" cache="false" />
+    <script src="source/client/widget/palette.lua" type="client" cache="false" />
+    <script src="source/client/widget/button.lua" type="client" cache="false" />
+    <script src="source/client/widget/checkbox.lua" type="client" cache="false" />
+    <script src="source/client/widget/combobox.lua" type="client" cache="false" />
+    <script src="source/client/widget/contextmenu.lua" type="client" cache="false" />
+    <script src="source/client/widget/edit.lua" type="client" cache="false" />
+    <script src="source/client/widget/gridlist.lua" type="client" cache="false" />
+    <script src="source/client/widget/image.lua" type="client" cache="false" />
+    <script src="source/client/widget/label.lua" type="client" cache="false" />
+    <script src="source/client/widget/list.lua" type="client" cache="false" />
+    <script src="source/client/widget/memo.lua" type="client" cache="false" />
+    <script src="source/client/widget/modal.lua" type="client" cache="false" />
+    <script src="source/client/widget/panel.lua" type="client" cache="false" />
+    <script src="source/client/widget/popup.lua" type="client" cache="false" />
+    <script src="source/client/widget/progressbar.lua" type="client" cache="false" />
+    <script src="source/client/widget/radiobutton.lua" type="client" cache="false" />
+    <script src="source/client/widget/scroll.lua" type="client" cache="false" />
+    <script src="source/client/widget/scrollpanel.lua" type="client" cache="false" />
+    <script src="source/client/widget/slider.lua" type="client" cache="false" />
+    <script src="source/client/widget/tabpanel.lua" type="client" cache="false" />
+    <script src="source/client/widget/tooltip.lua" type="client" cache="false" />
+    <script src="source/client/widget/treelist.lua" type="client" cache="false" />
+    <script src="source/client/widget/window.lua" type="client" cache="false" />
     <script src="source/client/boot.lua" type="client" cache="false" />
     <settings>
         <setting name="dxui_debug" value="#true" />

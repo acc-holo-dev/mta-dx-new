@@ -43,14 +43,12 @@ local function compileSchema(spec)
     return prop.compile(spec.name, schema)
 end
 
--- применяет стартовые свойства к узлу (конструктор виджета)
+-- применяет стартовые свойства к узлу (конструктор виджета).
+-- "children" не свойство: список детей забирает registry.create.
 local function applyProps(node, props)
     if props == nil then return end
     for k, v in pairs(props) do
-        if k == "children" then
-            error(("dxui: '%s': children задаётся списком, а не свойством"):format(
-                tostring(rawget(node, "_").widgetType)), 2)
-        else
+        if k ~= "children" then
             node[k] = v
         end
     end
@@ -89,10 +87,11 @@ function registry.define(spec)
         -- lay создаётся после Node.__init: internals уже есть
         rawget(self, "_").lay = lay_mod.new({})
         rawset(self, "_renderSpec", spec)
+        -- свойства ДО init: init видит уже применённые значения (radioGroup и др.)
+        applyProps(self, props)
         if spec.init then
             spec.init(self, props)
         end
-        applyProps(self, props)
     end
 
     -- children = {...} в конструкторе: addChild после применения свойств
