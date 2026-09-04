@@ -70,6 +70,13 @@ LAYERS = [
 # каталоги виджетов: 1 файл = 1 виджет, порядок алфавитный
 WIDGET_DIR = "widget"
 
+# api/ и debug/ грузятся после виджетов: фасад и инспектор поверх registry
+POST_WIDGETS = [
+    "api/exports.lua",
+    "debug/inspector.lua",
+    "debug/profiler.lua",
+]
+
 # файлы, которые подключаются всегда после слоёв
 TAIL = [
     "boot.lua",
@@ -87,7 +94,7 @@ def widget_files():
 
 
 def boot_order():
-    return LAYERS[:-1] + [LAYERS[-1]] + widget_files() + TAIL
+    return LAYERS[:-1] + [LAYERS[-1]] + widget_files() + POST_WIDGETS + TAIL
 
 
 # ------------------------------------------------------------------ build
@@ -104,6 +111,7 @@ def cmd_build():
         if not os.path.isfile(path):
             continue
         lines.append('    <script src="source/client/%s" type="client" cache="false" />' % rel)
+    lines.append('    <export function="import" type="client" />')
     lines.append('    <settings>')
     lines.append('        <setting name="dxui_debug" value="#true" />')
     lines.append('        <setting name="dxui_priority" value="#normal" />')

@@ -63,7 +63,13 @@ local function renderNode(node, canvas, ox, oy)
     end
 
     if spec and spec.render then
-        spec.render(node, canvas, wx, wy)
+        -- профилирование per-widget: единственный if в холодном пути
+        local profiler = DXUI.profiler
+        if profiler and profiler.isEnabled() then
+            profiler.measure(inod.widgetType, spec.render, node, canvas, wx, wy)
+        else
+            spec.render(node, canvas, wx, wy)
+        end
     end
 
     local children = inod.children

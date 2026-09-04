@@ -85,18 +85,60 @@ dispatcher.install()
 
 -- ---------------------------------------------------------------- кадр
 
+local inspector = DXUI.inspector
+local profiler = DXUI.profiler
+
 local function onFrame()
     -- ввод один раз за кадр ДО пасса раскладки (task.md §3.4)
     dispatcher.dispatch(frame.roots())
     -- твины: единый клок, никаких таймеров в виджетах (task.md §5)
     DXUI.tween.tick()
+    local t0 = profiler.frameStart()
     frame.run(canvas)
     canvas:drain(backend)
+    profiler.frameEnd(t0)
+    -- overlay инспектора: статистика кадра
+    if inspector.overlayEnabled() then
+        local med = profiler.medianFrameCost()
+        local lines = {
+            ("dxui: median frame %.3f ms"):format(med),
+            ("live nodes: %d | roots: %d"):format(DXUI.Node.getLiveCount(), #frame.roots()),
+            ("active tweens: %d"):format(DXUI.tween.activeCount()),
+        }
+        local i = #lines
+        for _, rec in ipairs(profiler.stats()) do
+            if rec.worst > 0 then
+                i = i + 1
+                lines[i] = ("%-12s x%d avg %.4f worst %.4f ms")
+                    :format(rec.type, rec.calls, rec.avg, rec.worst)
+            end
+        end
+        inspector.overlaySet(lines)
+    end
 end
 
 -- единственный обработчик кадра; приоритет — из настроек
 addEventHandler("onClientRender", root, onFrame, false,
     settings.priority == "low" and "low" or settings.priority)
+
+-- ---------------------------------------------------------------- инспектор/профайлер
+-- F8 — дерево/статистика; dxui:stats — только профайлер overlay
+
+bindKey("F8", "down", function()
+    if inspector.overlayEnabled() then
+        inspector.overlayEnable(false)
+        profiler.enable(false)
+    else
+        profiler.enable(true)
+        inspector.overlayEnable(true)
+    end
+end)
+
+addCommandHandler("dxui:stats", function()
+    local on = not profiler.isEnabled()
+    profiler.enable(on)
+    inspector.overlayEnable(on)
+end)
 
 -- ---------------------------------------------------------------- hot-reload
 -- dev: перечитываем тему по таймеру (файл = таблица переопределений токенов)
