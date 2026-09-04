@@ -5,6 +5,7 @@ local prop = _G.DXUI.prop
 
 return _G.DXUI.registry.define {
     name = "Window",
+    interactive = true,
     schema = {
         title = {
             type = "string", default = "Window", invalidates = { prop.DIRTY.RENDER },

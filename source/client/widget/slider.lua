@@ -5,6 +5,8 @@ local prop = _G.DXUI.prop
 
 return _G.DXUI.registry.define {
     name = "Slider",
+    interactive = true,
+    focusable = true,
     schema = {
         value = {
             type = "number", default = 0, invalidates = { prop.DIRTY.RENDER },

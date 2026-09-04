@@ -82,6 +82,11 @@ function frame.add(root)
     return root
 end
 
+-- корни кадра (для input/dispatcher: сбор геометрии hit-test)
+function frame.roots()
+    return roots
+end
+
 function frame.remove(root)
     for i = 1, #roots do
         if roots[i] == root then

@@ -5,6 +5,8 @@ local prop = _G.DXUI.prop
 
 return _G.DXUI.registry.define {
     name = "Combobox",
+    interactive = true,
+    focusable = true,
     schema = {
         items = {
             type = "table",

@@ -6,6 +6,7 @@ local prop = _G.DXUI.prop
 
 return _G.DXUI.registry.define {
     name = "GridList",
+    interactive = true,
     schema = {
         columns = {
             type = "number", default = 1, invalidates = { prop.DIRTY.RENDER },

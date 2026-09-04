@@ -5,6 +5,7 @@ local prop = _G.DXUI.prop
 
 return _G.DXUI.registry.define {
     name = "TreeList",
+    interactive = true,
     schema = {
         items = {
             type = "table",

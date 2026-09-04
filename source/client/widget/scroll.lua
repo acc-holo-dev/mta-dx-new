@@ -5,6 +5,7 @@ local prop = _G.DXUI.prop
 
 return _G.DXUI.registry.define {
     name = "Scroll",
+    interactive = true,
     schema = {
         position = {
             type = "number", default = 0, invalidates = { prop.DIRTY.RENDER },

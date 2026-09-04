@@ -7,6 +7,9 @@ local editor_mod = _G.DXUI.editor
 
 return _G.DXUI.registry.define {
     name = "Edit",
+    interactive = true,
+    focusable = true,
+    editable = true,
     schema = {
         placeholder = {
             type = "string", default = "", invalidates = { prop.DIRTY.RENDER },

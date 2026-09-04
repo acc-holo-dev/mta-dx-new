@@ -18,6 +18,8 @@ end
 
 local spec = _G.DXUI.registry.define {
     name = "RadioButton",
+    interactive = true,
+    focusable = true,
     schema = {
         text = {
             type = "string", default = "", invalidates = { prop.DIRTY.RENDER },

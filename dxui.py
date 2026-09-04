@@ -49,6 +49,10 @@ LAYERS = [
     "render/backend_mta.lua",
     "render/backend_headless.lua",
     "render/frame.lua",
+    # input/
+    "input/hit_test.lua",
+    "input/focus.lua",
+    "input/dispatcher.lua",
     # text/
     "text/editor.lua",
     # widget/ (palette — первым: цвета схемы по умолчанию)

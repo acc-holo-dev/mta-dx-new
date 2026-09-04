@@ -94,6 +94,21 @@ function registry.define(spec)
         end
     end
 
+    -- события указателя до release идут этому виджету (task.md §3.4);
+    -- dispatcher подключается лениво: input/ грузится после registry
+    rawset(WidgetClass, "capturePointer", function(self)
+        _G.DXUI.dispatcher.capture(self)
+    end)
+
+    -- уничтожение: снять фокус, если он был здесь (input/ лениво)
+    rawset(WidgetClass, "destroy", function(self)
+        local focus = _G.DXUI.focus
+        if focus and focus.get() == self then
+            focus.onNodeDestroyed(self)
+        end
+        Node.destroy(self)
+    end)
+
     -- children = {...} в конструкторе: addChild после применения свойств
     local upstreamInit = WidgetClass.__init
 

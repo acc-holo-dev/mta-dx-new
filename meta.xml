@@ -24,6 +24,9 @@
     <script src="source/client/render/backend_mta.lua" type="client" cache="false" />
     <script src="source/client/render/backend_headless.lua" type="client" cache="false" />
     <script src="source/client/render/frame.lua" type="client" cache="false" />
+    <script src="source/client/input/hit_test.lua" type="client" cache="false" />
+    <script src="source/client/input/focus.lua" type="client" cache="false" />
+    <script src="source/client/input/dispatcher.lua" type="client" cache="false" />
     <script src="source/client/text/editor.lua" type="client" cache="false" />
     <script src="source/client/widget/palette.lua" type="client" cache="false" />
     <script src="source/client/widget/button.lua" type="client" cache="false" />

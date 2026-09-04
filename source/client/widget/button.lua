@@ -5,6 +5,8 @@ local prop = _G.DXUI.prop
 
 return _G.DXUI.registry.define {
     name = "Button",
+    interactive = true,
+    focusable = true,
     schema = {
         text = {
             type = "string", default = "", invalidates = { prop.DIRTY.RENDER },
