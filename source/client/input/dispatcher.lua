@@ -187,6 +187,14 @@ local function onClick(button, state, x, y)
                 end
             end
         end
+        -- release — всегда по отпусканию (после drag click не приходит;
+        -- нужен drag-and-drop и capture-виджетам). ДО сброса состояния.
+        if pointer.down then
+            local relTarget = captured or pointer.target
+            if relTarget then
+                relTarget:emit("release", x, y)
+            end
+        end
         pointer.down = false
         pointer.target = nil
         pointer.dragging = false
@@ -201,7 +209,13 @@ local function onMove(x, y)
 end
 
 local function onKey(key, down)
-    if not down then return end
+    if not down then
+        -- key-up отбрасываем, КРОМЕ модификаторов: без их ups Ctrl/Shift
+        -- «залипали» бы в сфокусированном поле (Ctrl+Z вставлял бы 'z')
+        if key ~= "lctrl" and key ~= "rctrl" and key ~= "lshift" and key ~= "rshift" then
+            return
+        end
+    end
     local focused = DXUI.focus.get()
     if key == "tab" then
         if DXUI.focus.isEditing() then
@@ -217,7 +231,14 @@ local function onKey(key, down)
         if DXUI.focus.isEditing() and DXUI.focus.isEditable(focused) then
             -- стрелка не выводит из поля (§3.5)
             local inputKey = methodOf(focused, "inputKey")
-            if inputKey then inputKey(focused, key, false) end
+            if inputKey then inputKey(focused, key, down) end
+            return
+        end
+        -- виджет сам забирает стрелки (списки: строка вверх/вниз, §3.5)
+        local fspec = rawget(focused, "_renderSpec")
+        if fspec and fspec.arrowNavigation and methodOf(focused, "inputKey") then
+            local inputKey = methodOf(focused, "inputKey")
+            inputKey(focused, key, down)
             return
         end
         -- обход по дереву раскладки: вверх/вниз = сосед
@@ -226,7 +247,7 @@ local function onKey(key, down)
     else
         if focused ~= nil then
             local inputKey = methodOf(focused, "inputKey")
-            if inputKey then inputKey(focused, key, false) end
+            if inputKey then inputKey(focused, key, down) end
         end
     end
 end
@@ -292,6 +313,29 @@ end
 
 function dispatcher.getCaptured()
     return captured
+end
+
+-- hit-test против геометрии прошлого кадра (drag-and-drop, тултипы)
+function dispatcher.query(x, y)
+    return sh:query(x, y)
+end
+
+-- clipboard: мост к MTA getClipboard/setClipboard для текстового ядра.
+-- Не всякая сборка клиента имеет эти функции — доступаемся безопасно.
+function dispatcher.getClipboard()
+    local f = rawget(_G, "getClipboard")
+    if type(f) == "function" then
+        local ok, text = pcall(f)
+        if ok then return text end
+    end
+    return nil
+end
+
+function dispatcher.setClipboard(text)
+    local f = rawget(_G, "setClipboard")
+    if type(f) == "function" then
+        pcall(f, text)
+    end
 end
 
 -- ---------------------------------------------------------------- MTA-мост

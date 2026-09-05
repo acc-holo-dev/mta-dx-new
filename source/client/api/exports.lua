@@ -80,6 +80,12 @@ ui.animation = DXUI.tween
 ui.theme = DXUI.theme
 ui.registry = registry
 
+-- §3.8 Screen Stack + сериализация раскладки; §4.3 drag-and-drop
+-- (модули грузятся до GLUE — bundle в том же порядке)
+ui.screens = DXUI.screens
+ui.Screen = DXUI.screens
+ui.dragdrop = DXUI.dragdrop
+
 return ui
 ]==]
 

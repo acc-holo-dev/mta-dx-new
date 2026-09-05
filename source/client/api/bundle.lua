@@ -1617,7 +1617,9 @@ local function compileSchema(spec)
     for k, v in pairs(spec.schema or {}) do
         schema[k] = v
     end
-    -- зеркалирование геометрии в lay через transform
+    -- зеркалирование геометрии в lay через transform (task.md §4.3:
+    -- DPI tokens.scale применяется один раз — здесь, при установке свойства;
+    -- в data хранится логическое (немасштабированное) значение)
     local mirror = base.layMirror()
     for propName, layField in pairs(mirror) do
         local entry = schema[propName]
@@ -1626,7 +1628,9 @@ local function compileSchema(spec)
             entry.transform = function(v, node)
                 local inod = rawget(node, "_")
                 if inod and inod.lay then
-                    inod.lay[layField] = v
+                    local tokens = _G.DXUI.tokens
+                    local s = tokens and tokens.scale or 1
+                    inod.lay[layField] = v * s
                 end
                 if upstream then
                     return upstream(v, node)
@@ -2815,6 +2819,14 @@ local function onClick(button, state, x, y)
                 end
             end
         end
+        -- release — всегда по отпусканию (после drag click не приходит;
+        -- нужен drag-and-drop и capture-виджетам). ДО сброса состояния.
+        if pointer.down then
+            local relTarget = captured or pointer.target
+            if relTarget then
+                relTarget:emit("release", x, y)
+            end
+        end
         pointer.down = false
         pointer.target = nil
         pointer.dragging = false
@@ -2829,7 +2841,13 @@ local function onMove(x, y)
 end
 
 local function onKey(key, down)
-    if not down then return end
+    if not down then
+        -- key-up отбрасываем, КРОМЕ модификаторов: без их ups Ctrl/Shift
+        -- «залипали» бы в сфокусированном поле (Ctrl+Z вставлял бы 'z')
+        if key ~= "lctrl" and key ~= "rctrl" and key ~= "lshift" and key ~= "rshift" then
+            return
+        end
+    end
     local focused = DXUI.focus.get()
     if key == "tab" then
         if DXUI.focus.isEditing() then
@@ -2845,7 +2863,14 @@ local function onKey(key, down)
         if DXUI.focus.isEditing() and DXUI.focus.isEditable(focused) then
             -- стрелка не выводит из поля (§3.5)
             local inputKey = methodOf(focused, "inputKey")
-            if inputKey then inputKey(focused, key, false) end
+            if inputKey then inputKey(focused, key, down) end
+            return
+        end
+        -- виджет сам забирает стрелки (списки: строка вверх/вниз, §3.5)
+        local fspec = rawget(focused, "_renderSpec")
+        if fspec and fspec.arrowNavigation and methodOf(focused, "inputKey") then
+            local inputKey = methodOf(focused, "inputKey")
+            inputKey(focused, key, down)
             return
         end
         -- обход по дереву раскладки: вверх/вниз = сосед
@@ -2854,7 +2879,7 @@ local function onKey(key, down)
     else
         if focused ~= nil then
             local inputKey = methodOf(focused, "inputKey")
-            if inputKey then inputKey(focused, key, false) end
+            if inputKey then inputKey(focused, key, down) end
         end
     end
 end
@@ -2922,6 +2947,29 @@ function dispatcher.getCaptured()
     return captured
 end
 
+-- hit-test против геометрии прошлого кадра (drag-and-drop, тултипы)
+function dispatcher.query(x, y)
+    return sh:query(x, y)
+end
+
+-- clipboard: мост к MTA getClipboard/setClipboard для текстового ядра.
+-- Не всякая сборка клиента имеет эти функции — доступаемся безопасно.
+function dispatcher.getClipboard()
+    local f = rawget(_G, "getClipboard")
+    if type(f) == "function" then
+        local ok, text = pcall(f)
+        if ok then return text end
+    end
+    return nil
+end
+
+function dispatcher.setClipboard(text)
+    local f = rawget(_G, "setClipboard")
+    if type(f) == "function" then
+        pcall(f, text)
+    end
+end
+
 -- ---------------------------------------------------------------- MTA-мост
 
 function dispatcher.install()
@@ -2945,6 +2993,187 @@ end
 if _G.DXUI == nil then _G.DXUI = {} end
 _G.DXUI.dispatcher = dispatcher
 return dispatcher
+
+end)();
+(function()
+-- input/dragdrop.lua — единый менеджер drag-and-drop (task.md §4.3)
+--
+-- source -> target со slots:
+--   dragdrop.setSource(node, payload)   — node становится перетаскиваемой:
+--     press + drag (порог dispatcher 4px) открывают сессию и захватывают
+--     указатель; события до release идут источнику
+--   dragdrop.registerTarget(node, slots) — зоны приёма:
+--     nil / "default"            — вся площадь виджета, слот "default"
+--     { {id=, x=, y=, w=, h=}, … } — зоны в локальных координатах виджета
+--
+-- Сигналы цели:  dragEnter(payload, slot) / dragOver(payload, slot, x, y) /
+--                dragLeave(payload) / drop(payload, slot, x, y)
+-- Сигналы источника: dragStart() / dragEnd(accepted, target, slot)
+-- Активная пара для инспектора: dragdrop.active() -> {source, target, slot}
+
+local DXUI = _G.DXUI
+
+local dragdrop = {}
+
+-- слабые ключи: уничтоженный виджет выпадает из регистрации сам
+local sources = setmetatable({}, { __mode = "k" }) -- node -> payload
+local targets = setmetatable({}, { __mode = "k" }) -- node -> slots
+
+local session = nil -- { source, payload, target, slot }
+
+local function worldRect(node)
+    local x, y = 0, 0
+    local cur = node
+    while cur do
+        local l = rawget(cur, "_").lay
+        x = x + l.x
+        y = y + l.y
+        cur = rawget(cur, "_").parent
+    end
+    local l = rawget(node, "_").lay
+    return x, y, l.w, l.h
+end
+
+-- слот под точкой (экранные координаты); nil, если мимо виджета/зон
+local function slotAt(node, px, py)
+    local slots = targets[node]
+    if slots == nil then return nil end
+    local wx, wy, w, h = worldRect(node)
+    local lx, ly = px - wx, py - wy
+    if lx < 0 or ly < 0 or lx > w or ly > h then return nil end
+    if slots == "default" then return "default" end
+    for i = 1, #slots do
+        local s = slots[i]
+        if lx >= s.x and lx <= s.x + s.w and ly >= s.y and ly <= s.y + s.h then
+            return s.id or tostring(i)
+        end
+    end
+    return nil
+end
+
+-- hit по ВСЕМ видимым узлам (pre-order = Z: позже в дереве = выше).
+-- Собственный обход, а не dispatcher.query: пространственный хеш
+-- dispatcher индексирует только интерактивные узлы, а drop-target может
+-- быть любым (Panel и т.п.).
+local function hitAll(px, py)
+    local best, bestOrder = nil, -1
+    local order = 0
+    local function walk(node, ox, oy)
+        local inod = rawget(node, "_")
+        if inod == nil then return end
+        if inod.data.visible == false then return end
+        local l = inod.lay
+        if l == nil then return end
+        local wx, wy = ox + l.x, oy + l.y
+        if px >= wx and px <= wx + l.w and py >= wy and py <= wy + l.h then
+            if order > bestOrder then
+                best, bestOrder = node, order
+            end
+        end
+        order = order + 1
+        local children = inod.children
+        for i = 1, #children do
+            walk(children[i], wx, wy)
+        end
+    end
+    local roots = DXUI.frame.roots()
+    for i = 1, #roots do
+        walk(roots[i], 0, 0)
+    end
+    return best
+end
+
+-- цель и слот под точкой: ближайший ЗАРЕГИСТРИРОВАННЫЙ предок попадания
+-- (собственное поддерево источника не считается целью)
+local function resolveTarget(px, py)
+    local hit = hitAll(px, py)
+    if hit ~= nil then
+        if hit == session.source or DXUI.tree_ops.isAncestorOf(session.source, hit) then
+            hit = nil
+        end
+    end
+    local cur = hit
+    while cur do
+        if targets[cur] ~= nil then
+            return cur, slotAt(cur, px, py)
+        end
+        cur = rawget(cur, "_").parent
+    end
+    return nil, nil
+end
+
+local function updateHover(px, py)
+    if session == nil then return end
+    local target, slot = resolveTarget(px, py)
+    if target ~= session.target or slot ~= session.slot then
+        if session.target then
+            session.target:emit("dragLeave", session.payload)
+        end
+        session.target, session.slot = target, slot
+        if target then
+            target:emit("dragEnter", session.payload, slot)
+        end
+    elseif target then
+        target:emit("dragOver", session.payload, slot, px, py)
+    end
+end
+
+-- ---------------------------------------------------------------- регистрация
+
+function dragdrop.setSource(node, payload)
+    sources[node] = payload
+    -- сессия открывается по первому drag (порог 4px dispatcher уже пройден)
+    node:signal("drag"):connect(function(dx, dy, px, py)
+        if session == nil then
+            session = { source = node, payload = sources[node] }
+            node:capturePointer()
+            node:emit("dragStart")
+        end
+        updateHover(px, py)
+    end)
+    node:signal("release"):connect(function(px, py)
+        if session == nil or session.source ~= node then return end
+        updateHover(px, py)
+        local s = session
+        session = nil
+        if s.target then
+            s.target:emit("drop", s.payload, s.slot, px, py)
+            node:emit("dragEnd", true, s.target, s.slot)
+        else
+            node:emit("dragEnd", false, nil, nil)
+        end
+    end)
+end
+
+function dragdrop.registerTarget(node, slots)
+    targets[node] = slots or "default"
+end
+
+function dragdrop.unregister(node)
+    sources[node] = nil
+    targets[node] = nil
+end
+
+-- ---------------------------------------------------------------- интроспекция
+
+function dragdrop.active()
+    if session == nil then return nil end
+    local sin = rawget(session.source, "_")
+    local tin = session.target and rawget(session.target, "_") or nil
+    return {
+        source = sin and sin.widgetType or "?",
+        target = tin and tin.widgetType or nil,
+        slot = session.slot,
+    }
+end
+
+function dragdrop.reset()
+    session = nil
+end
+
+if _G.DXUI == nil then _G.DXUI = {} end
+DXUI.dragdrop = dragdrop
+return dragdrop
 
 end)();
 (function()
@@ -3777,7 +4006,11 @@ return _G.DXUI.registry.define {
     end,
     -- ввод символа (мост onClientCharacter приезжает сюда через dispatcher)
     inputCharacter = function(self, ch)
-        local ed = rawget(self, "_").editor
+        local inod = rawget(self, "_")
+        if inod.ctrlHeld then
+            return false -- Ctrl+C и т.п. не должны вставлять символы (§3.7)
+        end
+        local ed = inod.editor
         if self.maxLength > 0 and #ed.text >= self.maxLength then
             return false
         end
@@ -3785,21 +4018,58 @@ return _G.DXUI.registry.define {
         return true
     end,
     inputKey = function(self, key, down)
-        local ed = rawget(self, "_").editor
+        local inod = rawget(self, "_")
+        local ed = inod.editor
+        -- модификаторы: отслеживаем И down, И up (dispatcher шлёт ups
+        -- модификаторов отдельно — без них Ctrl «залипал» бы)
+        if key == "lctrl" or key == "rctrl" then
+            inod.ctrlHeld = down
+            return true
+        end
+        if key == "lshift" or key == "rshift" then
+            inod.shiftHeld = down
+            return true
+        end
+        if inod.ctrlHeld then
+            -- буфер обмена и undo — через мост dispatcher (§3.7)
+            if key == "z" then
+                return ed:undo()
+            elseif key == "c" then
+                if ed:hasSelection() then
+                    _G.DXUI.dispatcher.setClipboard(ed:selectionText())
+                    return true
+                end
+                return false
+            elseif key == "x" then
+                if ed:hasSelection() then
+                    _G.DXUI.dispatcher.setClipboard(ed:selectionText())
+                    return ed:delete(1)
+                end
+                return false
+            elseif key == "v" then
+                local text = _G.DXUI.dispatcher.getClipboard()
+                if text and text ~= "" and (self.maxLength <= 0 or #ed.text < self.maxLength) then
+                    return ed:insert(text)
+                end
+                return false
+            end
+            return true -- прочие Ctrl-комбинации глотаем, в поле не попадают
+        end
+        local extend = inod.shiftHeld == true
         if key == "backspace" then
             return ed:delete(-1)
         elseif key == "delete" then
             return ed:delete(1)
         elseif key == "arrow_l" then
-            ed:move(-1, down)
+            ed:move(-1, extend)
         elseif key == "arrow_r" then
-            ed:move(1, down)
+            ed:move(1, extend)
         elseif key == "home" then
             ed.caret = 1
-            if not down then ed.anchor = 1 end
+            if not extend then ed.anchor = 1 end
         elseif key == "end" then
             ed.caret = #ed.text + 1
-            if not down then ed.anchor = ed.caret end
+            if not extend then ed.anchor = ed.caret end
         end
         return true
     end,
@@ -3832,7 +4102,14 @@ local prop = _G.DXUI.prop
 return _G.DXUI.registry.define {
     name = "GridList",
     interactive = true,
+    focusable = true,
+    -- стрелки вверх/вниз = выбранная строка (не навигация фокуса, §3.5)
+    arrowNavigation = true,
     schema = {
+        selectedIndex = {
+            type = "number", default = 0, invalidates = { prop.DIRTY.RENDER },
+            doc = "Индекс выбранной ячейки (0 = нет)",
+        },
         columns = {
             type = "number", default = 1, invalidates = { prop.DIRTY.RENDER },
             doc = "Число колонок",
@@ -3861,6 +4138,36 @@ return _G.DXUI.registry.define {
         local cols = math.max(1, self.columns)
         return math.ceil(n / cols)
     end,
+    -- стрелки: следующая/предыдущая ячейка + автоскролл к выбранной (§3.5)
+    inputKey = function(self, key, down)
+        if not down then return true end
+        local items = self.items
+        local n = items and #items or 0
+        if n == 0 then return true end
+        local sel = self.selectedIndex
+        if key == "arrow_d" then
+            sel = math.min(n, sel + 1)
+        elseif key == "arrow_u" then
+            sel = math.max(1, sel - 1)
+        else
+            return true
+        end
+        if sel ~= self.selectedIndex then
+            self.selectedIndex = sel
+            self:emit("selectionChanged", sel)
+            local l = rawget(self, "_").lay
+            local cols = math.max(1, self.columns)
+            local rh = self.rowHeight
+            local row = math.ceil(sel / cols)
+            local top = (row - 1) * rh
+            if top < self.scrollY then
+                self.scrollY = top
+            elseif top + rh > self.scrollY + l.h then
+                self.scrollY = top + rh - l.h
+            end
+        end
+        return true
+    end,
     render = function(self, canvas, x, y)
         local l = rawget(self, "_").lay
         local items = self.items or {}
@@ -3888,7 +4195,11 @@ return _G.DXUI.registry.define {
                     if type(item) == "table" then
                         item = item.text
                     end
-                    canvas:rect(cellX, rowY, colW, rh, row % 2 == 0 and P.bg or P.bgHover)
+                    if idx == self.selectedIndex then
+                        canvas:rect(cellX, rowY, colW, rh, P.accentDim)
+                    else
+                        canvas:rect(cellX, rowY, colW, rh, row % 2 == 0 and P.bg or P.bgHover)
+                    end
                     canvas:text(tostring(item), cellX + 6, rowY + rh / 2, { alignY = "center", color = P.text })
                 end
             end
@@ -3965,6 +4276,9 @@ local prop = _G.DXUI.prop
 return _G.DXUI.registry.define {
     name = "List",
     interactive = true,
+    focusable = true,
+    -- стрелки вверх/вниз = выбранная строка (не навигация фокуса, §3.5)
+    arrowNavigation = true,
     schema = {
         items = {
             type = "table",
@@ -3992,6 +4306,34 @@ return _G.DXUI.registry.define {
     rowsTotal = function(self)
         local items = self.items
         return items and #items or 0
+    end,
+    -- стрелки: следующая/предыдущая строка + автоскролл к выбранной (§3.5)
+    inputKey = function(self, key, down)
+        if not down then return true end
+        local items = self.items
+        local n = items and #items or 0
+        if n == 0 then return true end
+        local sel = self.selectedIndex
+        if key == "arrow_d" then
+            sel = math.min(n, sel + 1)
+        elseif key == "arrow_u" then
+            sel = math.max(1, sel - 1)
+        else
+            return true
+        end
+        if sel ~= self.selectedIndex then
+            self.selectedIndex = sel
+            self:emit("selectionChanged", sel)
+            local l = rawget(self, "_").lay
+            local rh = self.rowHeight
+            local top = (sel - 1) * rh
+            if top < self.scrollY then
+                self.scrollY = top
+            elseif top + rh > self.scrollY + l.h then
+                self.scrollY = top + rh - l.h
+            end
+        end
+        return true
     end,
     render = function(self, canvas, x, y)
         local l = rawget(self, "_").lay
@@ -4049,7 +4391,65 @@ return _G.DXUI.registry.define {
         ed.anchor = ed.caret
     end,
     inputCharacter = function(self, ch)
+        if rawget(self, "_").ctrlHeld then
+            return false -- Ctrl+C и т.п. не должны вставлять символы (§3.7)
+        end
         rawget(self, "_").editor:insert(ch)
+        return true
+    end,
+    inputKey = function(self, key, down)
+        local inod = rawget(self, "_")
+        local ed = inod.editor
+        -- модификаторы: отслеживаем И down, И up (dispatcher шлёт ups)
+        if key == "lctrl" or key == "rctrl" then
+            inod.ctrlHeld = down
+            return true
+        end
+        if key == "lshift" or key == "rshift" then
+            inod.shiftHeld = down
+            return true
+        end
+        if inod.ctrlHeld then
+            -- буфер обмена и undo — через мост dispatcher (§3.7)
+            if key == "z" then
+                return ed:undo()
+            elseif key == "c" then
+                if ed:hasSelection() then
+                    _G.DXUI.dispatcher.setClipboard(ed:selectionText())
+                    return true
+                end
+                return false
+            elseif key == "x" then
+                if ed:hasSelection() then
+                    _G.DXUI.dispatcher.setClipboard(ed:selectionText())
+                    return ed:delete(1)
+                end
+                return false
+            elseif key == "v" then
+                local text = _G.DXUI.dispatcher.getClipboard()
+                if text and text ~= "" then
+                    return ed:insert(text)
+                end
+                return false
+            end
+            return true
+        end
+        local extend = inod.shiftHeld == true
+        if key == "backspace" then
+            return ed:delete(-1)
+        elseif key == "delete" then
+            return ed:delete(1)
+        elseif key == "arrow_l" then
+            ed:move(-1, extend)
+        elseif key == "arrow_r" then
+            ed:move(1, extend)
+        elseif key == "home" then
+            ed.caret = 1
+            if not extend then ed.anchor = 1 end
+        elseif key == "end" then
+            ed.caret = #ed.text + 1
+            if not extend then ed.anchor = ed.caret end
+        end
         return true
     end,
     render = function(self, canvas, x, y)
@@ -4581,14 +4981,19 @@ return _G.DXUI.registry.define {
 
 end)();
 (function()
--- widget/window.lua — окно: заголовок, drag за тайтл, bringToFront по клику
+-- widget/window.lua — окно: заголовок, drag за тайтл, resize-маркеры (§4.1),
+-- bringToFront по клику. Маркеры: 4 угла + 4 ребра (зона 6px у краёв).
 
 local P = _G.DXUI.palette
 local prop = _G.DXUI.prop
 
+local MARKER = 6 -- зона захвата маркера у края окна
+
 return _G.DXUI.registry.define {
     name = "Window",
     interactive = true,
+    -- §4.1: bringToFront по клику — dispatcher поднимает КОРЕНЬ дерева цели
+    raiseOnPress = true,
     schema = {
         title = {
             type = "string", default = "Window", invalidates = { prop.DIRTY.RENDER },
@@ -4598,45 +5003,95 @@ return _G.DXUI.registry.define {
             type = "boolean", default = true, invalidates = { prop.DIRTY.RENDER },
             doc = "Разрешено ли перетаскивание за заголовок",
         },
+        resizable = {
+            type = "boolean", default = true, invalidates = { prop.DIRTY.RENDER },
+            doc = "Разрешены ли resize-маркеры по краям окна",
+        },
         headerHeight = {
             type = "number", default = 28, invalidates = { prop.DIRTY.RENDER },
             doc = "Высота заголовка окна",
+        },
+        minWidth = {
+            type = "number", default = 80, invalidates = { prop.DIRTY.LAYOUT },
+            doc = "Минимальная ширина при ресайзе маркерами",
+        },
+        minHeight = {
+            type = "number", default = 50, invalidates = { prop.DIRTY.LAYOUT },
+            doc = "Минимальная высота при ресайзе маркерами",
         },
         padding = {
             type = "number", default = 10, invalidates = { prop.DIRTY.LAYOUT },
             doc = "Внутренний отступ контента",
         },
     },
-    -- §4.1: bringToFront по клику — dispatcher поднимает КОРЕНЬ дерева цели
-    raiseOnPress = true,
-    -- §4.1: drag за заголовок. Жесты — сигналы dispatcher (press/drag);
-    -- moveBy вызывается dispatcher'ом с дельтой движения указателя
-    init = function(self)
-        self:signal("press"):connect(function(_, py)
-            if not self.draggable then return end
-            -- мировая Y окна = сумма lay.y по цепочке родителей
-            local wy = 0
-            local cur = self
-            while cur do
-                wy = wy + rawget(cur, "_").lay.y
-                cur = rawget(cur, "_").parent
-            end
-            if py >= wy and py <= wy + self.headerHeight then
-                self:capturePointer()
-            end
-        end)
-        self:signal("drag"):connect(function(dx, dy)
-            -- двигаем только если заголовок захватил указатель: иначе drag
-            -- по телу окна (или по детям) перетаскивал бы окно
-            if _G.DXUI.dispatcher.getCaptured() == self then
-                self:moveBy(dx, dy)
-            end
-        end)
+    -- мировые координаты узла = сумма lay по цепочке родителей
+    worldPosition = function(self)
+        local wx, wy = 0, 0
+        local cur = self
+        while cur do
+            local l = rawget(cur, "_").lay
+            wx = wx + l.x
+            wy = wy + l.y
+            cur = rawget(cur, "_").parent
+        end
+        return wx, wy
     end,
     -- drag за заголовок (вызывается input/dispatcher с дельтой)
     moveBy = function(self, dx, dy)
         self.x = self.x + dx
         self.y = self.y + dy
+    end,
+    -- ресайз маркерами: режим {l,r,t,b} — какие края тянем (§4.1, 8 маркеров)
+    resizeBy = function(self, dx, dy)
+        local m = rawget(self, "_").resizeMode
+        if m == nil then return end
+        if m.r then
+            self.width = math.max(self.minWidth, self.width + dx)
+        end
+        if m.b then
+            self.height = math.max(self.minHeight, self.height + dy)
+        end
+        if m.l then
+            local newW = math.max(self.minWidth, self.width - dx)
+            self.x = self.x + (self.width - newW)
+            self.width = newW
+        end
+        if m.t then
+            local newH = math.max(self.minHeight, self.height - dy)
+            self.y = self.y + (self.height - newH)
+            self.height = newH
+        end
+    end,
+    init = function(self)
+        self:signal("press"):connect(function(px, py)
+            local inod = rawget(self, "_")
+            inod.resizeMode = nil
+            local wx, wy = self:worldPosition()
+            local l = inod.lay
+            local lx, ly = px - wx, py - wy
+            local left = lx <= MARKER
+            local right = lx >= l.w - MARKER
+            local top = ly <= MARKER
+            local bottom = ly >= l.h - MARKER
+            -- маркеры (углы и рёбра) приоритетнее drag заголовка:
+            -- press может попасть только внутрь rect окна, зоны снаружи недостижимы
+            if self.resizable and (left or right or top or bottom) then
+                inod.resizeMode = { l = left, r = right, t = top, b = bottom }
+                self:capturePointer()
+            elseif self.draggable and ly <= self.headerHeight then
+                self:capturePointer()
+            end
+        end)
+        self:signal("drag"):connect(function(dx, dy)
+            -- двигаем/растягиваем только если окно захватило указатель:
+            -- иначе drag по телу или по детям перетаскивал бы окно
+            if _G.DXUI.dispatcher.getCaptured() ~= self then return end
+            if rawget(self, "_").resizeMode then
+                self:resizeBy(dx, dy)
+            else
+                self:moveBy(dx, dy)
+            end
+        end)
     end,
     render = function(self, canvas, x, y)
         local l = rawget(self, "_").lay
@@ -4645,6 +5100,19 @@ return _G.DXUI.registry.define {
         canvas:rect(x, y, l.w, self.headerHeight, P.bgHover, { radius = 6 })
         canvas:text(self.title, x + 10, y + self.headerHeight / 2, { alignY = "center", color = P.text })
         -- контент рисуют дети с собственным смещением через lay
+        -- маркеры ресайза — когда окно в фокусе (§4.1)
+        local focus = _G.DXUI.focus
+        if self.resizable and focus and focus.get() == self then
+            local M = MARKER
+            canvas:rect(x, y, M, M, P.accent)
+            canvas:rect(x + l.w - M, y, M, M, P.accent)
+            canvas:rect(x, y + l.h - M, M, M, P.accent)
+            canvas:rect(x + l.w - M, y + l.h - M, M, M, P.accent)
+            canvas:rect(x + l.w / 2 - M / 2, y, M, M, P.border)
+            canvas:rect(x + l.w / 2 - M / 2, y + l.h - M, M, M, P.border)
+            canvas:rect(x, y + l.h / 2 - M / 2, M, M, P.border)
+            canvas:rect(x + l.w - M, y + l.h / 2 - M / 2, M, M, P.border)
+        end
     end,
 }
 

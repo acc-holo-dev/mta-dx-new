@@ -39,7 +39,11 @@ return _G.DXUI.registry.define {
     end,
     -- ввод символа (мост onClientCharacter приезжает сюда через dispatcher)
     inputCharacter = function(self, ch)
-        local ed = rawget(self, "_").editor
+        local inod = rawget(self, "_")
+        if inod.ctrlHeld then
+            return false -- Ctrl+C и т.п. не должны вставлять символы (§3.7)
+        end
+        local ed = inod.editor
         if self.maxLength > 0 and #ed.text >= self.maxLength then
             return false
         end
@@ -47,21 +51,58 @@ return _G.DXUI.registry.define {
         return true
     end,
     inputKey = function(self, key, down)
-        local ed = rawget(self, "_").editor
+        local inod = rawget(self, "_")
+        local ed = inod.editor
+        -- модификаторы: отслеживаем И down, И up (dispatcher шлёт ups
+        -- модификаторов отдельно — без них Ctrl «залипал» бы)
+        if key == "lctrl" or key == "rctrl" then
+            inod.ctrlHeld = down
+            return true
+        end
+        if key == "lshift" or key == "rshift" then
+            inod.shiftHeld = down
+            return true
+        end
+        if inod.ctrlHeld then
+            -- буфер обмена и undo — через мост dispatcher (§3.7)
+            if key == "z" then
+                return ed:undo()
+            elseif key == "c" then
+                if ed:hasSelection() then
+                    _G.DXUI.dispatcher.setClipboard(ed:selectionText())
+                    return true
+                end
+                return false
+            elseif key == "x" then
+                if ed:hasSelection() then
+                    _G.DXUI.dispatcher.setClipboard(ed:selectionText())
+                    return ed:delete(1)
+                end
+                return false
+            elseif key == "v" then
+                local text = _G.DXUI.dispatcher.getClipboard()
+                if text and text ~= "" and (self.maxLength <= 0 or #ed.text < self.maxLength) then
+                    return ed:insert(text)
+                end
+                return false
+            end
+            return true -- прочие Ctrl-комбинации глотаем, в поле не попадают
+        end
+        local extend = inod.shiftHeld == true
         if key == "backspace" then
             return ed:delete(-1)
         elseif key == "delete" then
             return ed:delete(1)
         elseif key == "arrow_l" then
-            ed:move(-1, down)
+            ed:move(-1, extend)
         elseif key == "arrow_r" then
-            ed:move(1, down)
+            ed:move(1, extend)
         elseif key == "home" then
             ed.caret = 1
-            if not down then ed.anchor = 1 end
+            if not extend then ed.anchor = 1 end
         elseif key == "end" then
             ed.caret = #ed.text + 1
-            if not down then ed.anchor = ed.caret end
+            if not extend then ed.anchor = ed.caret end
         end
         return true
     end,

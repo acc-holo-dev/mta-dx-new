@@ -6,6 +6,9 @@ local prop = _G.DXUI.prop
 return _G.DXUI.registry.define {
     name = "List",
     interactive = true,
+    focusable = true,
+    -- стрелки вверх/вниз = выбранная строка (не навигация фокуса, §3.5)
+    arrowNavigation = true,
     schema = {
         items = {
             type = "table",
@@ -33,6 +36,34 @@ return _G.DXUI.registry.define {
     rowsTotal = function(self)
         local items = self.items
         return items and #items or 0
+    end,
+    -- стрелки: следующая/предыдущая строка + автоскролл к выбранной (§3.5)
+    inputKey = function(self, key, down)
+        if not down then return true end
+        local items = self.items
+        local n = items and #items or 0
+        if n == 0 then return true end
+        local sel = self.selectedIndex
+        if key == "arrow_d" then
+            sel = math.min(n, sel + 1)
+        elseif key == "arrow_u" then
+            sel = math.max(1, sel - 1)
+        else
+            return true
+        end
+        if sel ~= self.selectedIndex then
+            self.selectedIndex = sel
+            self:emit("selectionChanged", sel)
+            local l = rawget(self, "_").lay
+            local rh = self.rowHeight
+            local top = (sel - 1) * rh
+            if top < self.scrollY then
+                self.scrollY = top
+            elseif top + rh > self.scrollY + l.h then
+                self.scrollY = top + rh - l.h
+            end
+        end
+        return true
     end,
     render = function(self, canvas, x, y)
         local l = rawget(self, "_").lay

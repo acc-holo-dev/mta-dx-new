@@ -27,6 +27,7 @@
     <script src="source/client/input/hit_test.lua" type="client" cache="false" />
     <script src="source/client/input/focus.lua" type="client" cache="false" />
     <script src="source/client/input/dispatcher.lua" type="client" cache="false" />
+    <script src="source/client/input/dragdrop.lua" type="client" cache="false" />
     <script src="source/client/text/editor.lua" type="client" cache="false" />
     <script src="source/client/style/tokens.lua" type="client" cache="false" />
     <script src="source/client/style/theme.lua" type="client" cache="false" />
@@ -57,6 +58,7 @@
     <script src="source/client/widget/tooltip.lua" type="client" cache="false" />
     <script src="source/client/widget/treelist.lua" type="client" cache="false" />
     <script src="source/client/widget/window.lua" type="client" cache="false" />
+    <script src="source/client/api/screens.lua" type="client" cache="false" />
     <script src="source/client/api/bundle.lua" type="client" cache="false" />
     <script src="source/client/api/exports.lua" type="client" cache="false" />
     <script src="source/client/debug/inspector.lua" type="client" cache="false" />

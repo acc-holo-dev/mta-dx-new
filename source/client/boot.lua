@@ -77,6 +77,13 @@ local function onFrame()
                     :format(rec.type, rec.calls, rec.avg, rec.worst)
             end
         end
+        -- активная пара drag-and-drop (§4.3: инспектор показывает пары)
+        local dnd = DXUI.dragdrop and DXUI.dragdrop.active()
+        if dnd then
+            i = i + 1
+            lines[i] = ("dnd: %s -> %s (%s)")
+                :format(dnd.source, tostring(dnd.target), tostring(dnd.slot))
+        end
         inspector.overlaySet(lines)
     end
 end
@@ -154,6 +161,32 @@ addCommandHandler("dxui:demo", function()
         frame.add(demoWindow)
     end
     demoWindow.visible = not demoWindow.visible
+end)
+
+-- ---------------------------------------------------------------- layout io
+-- §3.8: позиции/размеры окон + тема в XML настроек ресурса (layout.xml).
+-- Сериализация — в api/screens (headless), файлы — здесь (whitelist §2).
+
+addCommandHandler("dxui:save-layout", function()
+    local f = fileCreate("layout.xml")
+    if not f then return end
+    fileWrite(f, DXUI.screens.saveLayout())
+    fileClose(f)
+    outputChatBox("dxui: раскладка сохранена (layout.xml)")
+end)
+
+addCommandHandler("dxui:load-layout", function()
+    if not fileExists("layout.xml") then
+        outputChatBox("dxui: layout.xml не найден")
+        return
+    end
+    local f = fileOpen("layout.xml", true)
+    if not f then return end
+    local src = fileRead(f, fileGetSize(f))
+    fileClose(f)
+    if DXUI.screens.loadLayout(src) then
+        outputChatBox("dxui: раскладка применена (layout.xml)")
+    end
 end)
 
 -- ---------------------------------------------------------------- hot-reload

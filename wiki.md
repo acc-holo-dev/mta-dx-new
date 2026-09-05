@@ -36,7 +36,8 @@
 
 ## GridList
 
-- **schema** `number` = 1 — 
+- **schema** `number` = 0 — 
+- **columns** `number` = 1 — 
 - **items** `table` — 
 - **rowHeight** `number` = 24 — 
 - **scrollY** `number` = 0 — 
@@ -132,5 +133,8 @@
 
 - **schema** `string` = "Window" — 
 - **draggable** `boolean` = true — 
+- **resizable** `boolean` = true — 
 - **headerHeight** `number` = 28 — 
+- **minWidth** `number` = 80 — 
+- **minHeight** `number` = 50 — 
 - **padding** `number` = 10 — 

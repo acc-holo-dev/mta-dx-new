@@ -53,6 +53,7 @@ LAYERS = [
     "input/hit_test.lua",
     "input/focus.lua",
     "input/dispatcher.lua",
+    "input/dragdrop.lua",
     # text/
     "text/editor.lua",
     # style/ (токены и темы поверх палитры; theme батчит дефолты в runtime)
@@ -71,8 +72,10 @@ LAYERS = [
 WIDGET_DIR = "widget"
 
 # api/ и debug/ грузятся после виджетов: фасад и инспектор поверх registry.
-# api/bundle.lua — сгенерированная строка исходников для import(2).
+# api/bundle.lua — сгенерированная строка исходников для import(2);
+# screens.lua — ДО bundle/exports: GLUE ссылается на DXUI.screens.
 POST_WIDGETS = [
+    "api/screens.lua",
     "api/bundle.lua",
     "api/exports.lua",
     "debug/inspector.lua",

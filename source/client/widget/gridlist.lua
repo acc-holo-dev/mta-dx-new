@@ -7,7 +7,14 @@ local prop = _G.DXUI.prop
 return _G.DXUI.registry.define {
     name = "GridList",
     interactive = true,
+    focusable = true,
+    -- стрелки вверх/вниз = выбранная строка (не навигация фокуса, §3.5)
+    arrowNavigation = true,
     schema = {
+        selectedIndex = {
+            type = "number", default = 0, invalidates = { prop.DIRTY.RENDER },
+            doc = "Индекс выбранной ячейки (0 = нет)",
+        },
         columns = {
             type = "number", default = 1, invalidates = { prop.DIRTY.RENDER },
             doc = "Число колонок",
@@ -36,6 +43,36 @@ return _G.DXUI.registry.define {
         local cols = math.max(1, self.columns)
         return math.ceil(n / cols)
     end,
+    -- стрелки: следующая/предыдущая ячейка + автоскролл к выбранной (§3.5)
+    inputKey = function(self, key, down)
+        if not down then return true end
+        local items = self.items
+        local n = items and #items or 0
+        if n == 0 then return true end
+        local sel = self.selectedIndex
+        if key == "arrow_d" then
+            sel = math.min(n, sel + 1)
+        elseif key == "arrow_u" then
+            sel = math.max(1, sel - 1)
+        else
+            return true
+        end
+        if sel ~= self.selectedIndex then
+            self.selectedIndex = sel
+            self:emit("selectionChanged", sel)
+            local l = rawget(self, "_").lay
+            local cols = math.max(1, self.columns)
+            local rh = self.rowHeight
+            local row = math.ceil(sel / cols)
+            local top = (row - 1) * rh
+            if top < self.scrollY then
+                self.scrollY = top
+            elseif top + rh > self.scrollY + l.h then
+                self.scrollY = top + rh - l.h
+            end
+        end
+        return true
+    end,
     render = function(self, canvas, x, y)
         local l = rawget(self, "_").lay
         local items = self.items or {}
@@ -63,7 +100,11 @@ return _G.DXUI.registry.define {
                     if type(item) == "table" then
                         item = item.text
                     end
-                    canvas:rect(cellX, rowY, colW, rh, row % 2 == 0 and P.bg or P.bgHover)
+                    if idx == self.selectedIndex then
+                        canvas:rect(cellX, rowY, colW, rh, P.accentDim)
+                    else
+                        canvas:rect(cellX, rowY, colW, rh, row % 2 == 0 and P.bg or P.bgHover)
+                    end
                     canvas:text(tostring(item), cellX + 6, rowY + rh / 2, { alignY = "center", color = P.text })
                 end
             end

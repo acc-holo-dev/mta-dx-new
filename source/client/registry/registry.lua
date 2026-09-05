@@ -22,7 +22,9 @@ local function compileSchema(spec)
     for k, v in pairs(spec.schema or {}) do
         schema[k] = v
     end
-    -- зеркалирование геометрии в lay через transform
+    -- зеркалирование геометрии в lay через transform (task.md §4.3:
+    -- DPI tokens.scale применяется один раз — здесь, при установке свойства;
+    -- в data хранится логическое (немасштабированное) значение)
     local mirror = base.layMirror()
     for propName, layField in pairs(mirror) do
         local entry = schema[propName]
@@ -31,7 +33,9 @@ local function compileSchema(spec)
             entry.transform = function(v, node)
                 local inod = rawget(node, "_")
                 if inod and inod.lay then
-                    inod.lay[layField] = v
+                    local tokens = _G.DXUI.tokens
+                    local s = tokens and tokens.scale or 1
+                    inod.lay[layField] = v * s
                 end
                 if upstream then
                     return upstream(v, node)

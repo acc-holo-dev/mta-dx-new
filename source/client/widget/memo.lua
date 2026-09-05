@@ -28,7 +28,65 @@ return _G.DXUI.registry.define {
         ed.anchor = ed.caret
     end,
     inputCharacter = function(self, ch)
+        if rawget(self, "_").ctrlHeld then
+            return false -- Ctrl+C и т.п. не должны вставлять символы (§3.7)
+        end
         rawget(self, "_").editor:insert(ch)
+        return true
+    end,
+    inputKey = function(self, key, down)
+        local inod = rawget(self, "_")
+        local ed = inod.editor
+        -- модификаторы: отслеживаем И down, И up (dispatcher шлёт ups)
+        if key == "lctrl" or key == "rctrl" then
+            inod.ctrlHeld = down
+            return true
+        end
+        if key == "lshift" or key == "rshift" then
+            inod.shiftHeld = down
+            return true
+        end
+        if inod.ctrlHeld then
+            -- буфер обмена и undo — через мост dispatcher (§3.7)
+            if key == "z" then
+                return ed:undo()
+            elseif key == "c" then
+                if ed:hasSelection() then
+                    _G.DXUI.dispatcher.setClipboard(ed:selectionText())
+                    return true
+                end
+                return false
+            elseif key == "x" then
+                if ed:hasSelection() then
+                    _G.DXUI.dispatcher.setClipboard(ed:selectionText())
+                    return ed:delete(1)
+                end
+                return false
+            elseif key == "v" then
+                local text = _G.DXUI.dispatcher.getClipboard()
+                if text and text ~= "" then
+                    return ed:insert(text)
+                end
+                return false
+            end
+            return true
+        end
+        local extend = inod.shiftHeld == true
+        if key == "backspace" then
+            return ed:delete(-1)
+        elseif key == "delete" then
+            return ed:delete(1)
+        elseif key == "arrow_l" then
+            ed:move(-1, extend)
+        elseif key == "arrow_r" then
+            ed:move(1, extend)
+        elseif key == "home" then
+            ed.caret = 1
+            if not extend then ed.anchor = 1 end
+        elseif key == "end" then
+            ed.caret = #ed.text + 1
+            if not extend then ed.anchor = ed.caret end
+        end
         return true
     end,
     render = function(self, canvas, x, y)

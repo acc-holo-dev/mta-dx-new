@@ -51,7 +51,16 @@ ui.Window {
 | `python dxui.py wiki` | Markdown-документация из полей doc |
 | `python dxui.py new-widget <Name>` | каркас файла виджета |
 
-В игре: **F8** / `dxui:stats` — инспектор и профайлер, `dxui:demo` — демо-экран.
+В игре: **F8** / `dxui:stats` — инспектор и профайлер, `dxui:demo` — демо-экран,
+`dxui:save-layout` / `dxui:load-layout` — раскладка окон и тема в `layout.xml` (§3.8).
+
+## API поверх фабрик (GLUE)
+
+| API | Назначение |
+|---|---|
+| `ui.Screen` / `ui.screens` | Screen Stack (§3.8): `push(root, opts?)` / `pop(opts?)` / `current()` / `depth()` / `clear(opts?)`; переход `opts.transition = "slide"`; возврат восстанавливает фокус; `saveLayout()` → XML-строка (окна + палитра), `loadLayout(xml)` |
+| `ui.dragdrop` | Drag-and-drop (§4.3): `setSource(node, payload)`, `registerTarget(node, slots)` (nil — вся площадь; `{ {id,x,y,w,h}, … }` — слоты в локальных координатах), `unregister(node)`, `active()` — пара для инспектора. Сигналы: источник `dragStart`/`dragEnd(accepted, target, slot)`; цель `dragEnter`/`dragOver`/`dragLeave`/`drop` |
+| `ui.animation` / `ui.theme` / `ui.registry` | твины, темы, реестр виджетов |
 
 ## Миграция с DGS (§9.3)
 
@@ -72,6 +81,6 @@ ui.Window {
 
 ## Тесты
 
-`python dxui.py test` — 123 headless-теста, включая бюджеты из §6.2
+`python dxui.py test` — 135 headless-тестов, включая бюджеты из §6.2
 (1000 виджетов ≤ 2 мс, GridList 10 000 строк ≤ 2 мс, смена темы 300 виджетов ≤ 5 мс,
 hit-test ≥ 20× линейного перебора).
