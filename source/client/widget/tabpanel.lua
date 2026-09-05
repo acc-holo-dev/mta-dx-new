@@ -42,7 +42,8 @@ return _G.DXUI.registry.define {
         for i = 1, n do
             local tx = x + (i - 1) * tabW
             canvas:rect(tx, y, tabW, self.tabHeight, i == self.activeIndex and P.bgHover or P.bgDisabled)
-            canvas:text(tostring(tabs[i].text or ""), tx + tabW / 2, y + self.tabHeight / 2, { color = P.text })
+            canvas:text(tostring(tabs[i].text or ""), tx + tabW / 2, y + self.tabHeight / 2,
+                { alignX = "center", alignY = "center", color = P.text })
         end
         canvas:rect(x, y + self.tabHeight, l.w, l.h - self.tabHeight, P.bg)
         -- контент вкладки — ребёнок (page) в дереве виджетов

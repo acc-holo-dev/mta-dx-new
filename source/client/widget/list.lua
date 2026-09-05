@@ -50,7 +50,7 @@ return _G.DXUI.registry.define {
                     if idx == self.selectedIndex then
                         canvas:rect(x, rowY, l.w, rh, P.bgHover)
                     end
-                    canvas:text(tostring(items[idx]), x + 6, rowY + rh / 2, { color = P.text })
+                    canvas:text(tostring(items[idx]), x + 6, rowY + rh / 2, { alignY = "center", color = P.text })
                 end
             end
         end

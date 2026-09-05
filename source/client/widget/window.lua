@@ -34,7 +34,7 @@ return _G.DXUI.registry.define {
         canvas:rect(x, y, l.w, l.h, P.windowBg, { radius = 6 })
         -- заголовок
         canvas:rect(x, y, l.w, self.headerHeight, P.bgHover, { radius = 6 })
-        canvas:text(self.title, x + 10, y + self.headerHeight / 2, { color = P.text })
+        canvas:text(self.title, x + 10, y + self.headerHeight / 2, { alignY = "center", color = P.text })
         -- контент рисуют дети с собственным смещением через lay
     end,
 }

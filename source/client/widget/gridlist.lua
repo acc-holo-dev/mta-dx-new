@@ -64,7 +64,7 @@ return _G.DXUI.registry.define {
                         item = item.text
                     end
                     canvas:rect(cellX, rowY, colW, rh, row % 2 == 0 and P.bg or P.bgHover)
-                    canvas:text(tostring(item), cellX + 6, rowY + rh / 2, { color = P.text })
+                    canvas:text(tostring(item), cellX + 6, rowY + rh / 2, { alignY = "center", color = P.text })
                 end
             end
         end

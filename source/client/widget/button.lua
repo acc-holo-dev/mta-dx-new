@@ -47,6 +47,7 @@ return _G.DXUI.registry.define {
             canvas:image(self.icon, x, y, l.h, l.h)
         end
         local tx = x + (self.icon and l.h or 0)
-        canvas:text(self.text, tx + l.w / 2, y + l.h / 2, { color = self.disabled and P.textDim or self.textColor })
+        canvas:text(self.text, tx + l.w / 2, y + l.h / 2,
+            { alignX = "center", alignY = "center", color = self.disabled and P.textDim or self.textColor })
     end,
 }

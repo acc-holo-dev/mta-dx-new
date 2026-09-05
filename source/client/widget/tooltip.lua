@@ -31,6 +31,6 @@ return _G.DXUI.registry.define {
         local l = rawget(self, "_").lay
         if self.text == "" then return end
         canvas:rect(x, y, l.w, l.h, P.bg, { radius = 4 })
-        canvas:text(self.text, x + 8, y + l.h / 2, { color = P.text })
+        canvas:text(self.text, x + 8, y + l.h / 2, { alignY = "center", color = P.text })
     end,
 }

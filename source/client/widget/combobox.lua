@@ -44,10 +44,10 @@ return _G.DXUI.registry.define {
         -- поле выбора
         canvas:rect(x, y, l.w, l.h, P.bgHover, { radius = 4 })
         local current = self.items and self.items[self.selectedIndex] or nil
-        canvas:text(tostring(current or "..."), x + 8, y + l.h / 2, { color = P.text })
+        canvas:text(tostring(current or "..."), x + 8, y + l.h / 2, { alignY = "center", color = P.text })
         -- стрелка
         local ax = x + l.w - 13
-        canvas:text(self.opened and "^" or "v", ax, y + l.h / 2, { color = P.textDim })
+        canvas:text(self.opened and "^" or "v", ax, y + l.h / 2, { alignY = "center", color = P.textDim })
         -- раскрытый список
         if self.opened then
             local items = self.items or {}
@@ -56,7 +56,7 @@ return _G.DXUI.registry.define {
             canvas:rect(x, y + l.h, l.w, n * ih, P.windowBg, { radius = 4 })
             for i = 1, n do
                 local iy = y + l.h + (i - 1) * ih
-                canvas:text(tostring(items[i]), x + 8, iy + ih / 2, { color = P.text })
+                canvas:text(tostring(items[i]), x + 8, iy + ih / 2, { alignY = "center", color = P.text })
             end
         end
     end,

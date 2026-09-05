@@ -56,7 +56,7 @@ function backend:rect(x, y, w, h, color, radius)
     counters.rect = counters.rect + 1
 end
 
-function backend:text(str, x, y, font, color)
+function backend:text(str, x, y, font, color, alignX, alignY)
     if type(str) ~= "string" then
         errors = errors + 1
         return
@@ -67,6 +67,7 @@ function backend:text(str, x, y, font, color)
     end
     last.kind = "text"
     last.str, last.x, last.y, last.font, last.color = str, x, y, font, color
+    last.alignX, last.alignY = alignX, alignY
     counters.text = counters.text + 1
 end
 

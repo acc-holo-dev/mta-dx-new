@@ -46,7 +46,7 @@ local spec = _G.DXUI.registry.define {
             canvas:rect(x + 5, cy + 5, d - 10, d - 10, P.white, { radius = (d - 10) / 2 })
         end
         if self.text ~= "" then
-            canvas:text(self.text, x + d + 6, y + l.h / 2, { color = P.text })
+            canvas:text(self.text, x + d + 6, y + l.h / 2, { alignY = "center", color = P.text })
         end
     end,
 }

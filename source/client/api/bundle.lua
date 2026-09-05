@@ -1770,7 +1770,12 @@ end)();
 -- Контракт:
 --   * canvas.new() -> canvas
 --   * canvas:rect(x, y, w, h, color, opts?)   opts = { radius = n }
---   * canvas:text(str, x, y, opts)            opts = { font = f, color = c }
+--   * canvas:text(str, x, y, opts)            opts = { font = f, color = c,
+--                                             alignX = "left"|"center"|"right",
+--                                             alignY = "top"|"center"|"bottom" }
+--                                             (x, y) — якорная точка текста:
+--                                             для alignX="center" это центр по X
+--                                             (текст рисуется вокруг неё)
 --   * canvas:image(tex, x, y, w, h, opts?)    opts = { rotate = r, slice = {l,t,r,b} }
 --   * canvas:clip(x, y, w, h) | canvas:clip() — push/pop клип-региона
 --   * canvas:clear() — сброс буфера (команды возвращаются в пул)
@@ -1825,6 +1830,8 @@ function Canvas:rect(x, y, w, h, color, opts)
     cmd.tex = nil
     cmd.slice = nil
     cmd.rotate = nil
+    cmd.alignX = nil
+    cmd.alignY = nil
     push(self, cmd)
 end
 
@@ -1835,6 +1842,8 @@ function Canvas:text(str, x, y, opts)
     cmd.x, cmd.y = x, y
     cmd.font = opts and opts.font or nil
     cmd.color = opts and opts.color or nil
+    cmd.alignX = opts and opts.alignX or nil
+    cmd.alignY = opts and opts.alignY or nil
     cmd.w, cmd.h = nil, nil
     cmd.tex = nil
     cmd.radius = nil
@@ -1854,6 +1863,8 @@ function Canvas:image(tex, x, y, w, h, opts)
     cmd.radius = nil
     cmd.font = nil
     cmd.str = nil
+    cmd.alignX = nil
+    cmd.alignY = nil
     push(self, cmd)
 end
 
@@ -1872,6 +1883,8 @@ function Canvas:clip(x, y, w, h)
     cmd.font = nil
     cmd.slice = nil
     cmd.rotate = nil
+    cmd.alignX = nil
+    cmd.alignY = nil
     push(self, cmd)
 end
 
@@ -1887,6 +1900,8 @@ function Canvas:clear()
         cmd.str = nil
         cmd.tex = nil
         cmd.slice = nil
+        cmd.alignX = nil
+        cmd.alignY = nil
         pool[self.poolCount + i] = cmd
     end
     self.poolCount = self.poolCount + n
@@ -1905,7 +1920,7 @@ function Canvas:drain(backend)
         if kind == CMD_RECT then
             backend:rect(cmd.x, cmd.y, cmd.w, cmd.h, cmd.color, cmd.radius)
         elseif kind == CMD_TEXT then
-            backend:text(cmd.str, cmd.x, cmd.y, cmd.font, cmd.color)
+            backend:text(cmd.str, cmd.x, cmd.y, cmd.font, cmd.color, cmd.alignX, cmd.alignY)
         elseif kind == CMD_IMAGE then
             backend:image(cmd.tex, cmd.x, cmd.y, cmd.w, cmd.h, cmd.rotate, cmd.slice)
         elseif kind == CMD_CLIP_PUSH then
@@ -1994,11 +2009,26 @@ function backend:rect(x, y, w, h, color, radius)
     end
 end
 
-function backend:text(str, x, y, font, color)
+function backend:text(str, x, y, font, color, alignX, alignY)
     local c = colorArg(color)
-    -- коробка большая (clip = false — она не клиппит): alignX/alignY
-    -- относительно коробки, вырожденная коробка в точку рискованна
-    dxDrawText(tostring(str), x, y, x + 10000, y + 10000, c, 1.0, font or "default", "left", "top", false, false, false, true)
+    alignX = alignX or "left"
+    alignY = alignY or "top"
+    -- MTA: alignX/alignY относительно КОРОБКИ текста; clip=false — коробка
+    -- не клиппит, поэтому делаем её большой и ставим якорную точку (x, y)
+    -- в нужное место коробки: для "center" это центр, для "right"/"bottom" — край
+    local left, right = x, x + 10000
+    if alignX == "center" then
+        left, right = x - 10000, x + 10000
+    elseif alignX == "right" then
+        left, right = x - 10000, x
+    end
+    local top, bottom = y, y + 10000
+    if alignY == "center" then
+        top, bottom = y - 10000, y + 10000
+    elseif alignY == "bottom" then
+        top, bottom = y - 10000, y
+    end
+    dxDrawText(tostring(str), left, top, right, bottom, c, 1.0, font or "default", alignX, alignY, false, false, false, true)
 end
 
 function backend:image(tex, x, y, w, h, rotate, slice)
@@ -2108,7 +2138,7 @@ function backend:rect(x, y, w, h, color, radius)
     counters.rect = counters.rect + 1
 end
 
-function backend:text(str, x, y, font, color)
+function backend:text(str, x, y, font, color, alignX, alignY)
     if type(str) ~= "string" then
         errors = errors + 1
         return
@@ -2119,6 +2149,7 @@ function backend:text(str, x, y, font, color)
     end
     last.kind = "text"
     last.str, last.x, last.y, last.font, last.color = str, x, y, font, color
+    last.alignX, last.alignY = alignX, alignY
     counters.text = counters.text + 1
 end
 
@@ -3519,7 +3550,8 @@ return _G.DXUI.registry.define {
             canvas:image(self.icon, x, y, l.h, l.h)
         end
         local tx = x + (self.icon and l.h or 0)
-        canvas:text(self.text, tx + l.w / 2, y + l.h / 2, { color = self.disabled and P.textDim or self.textColor })
+        canvas:text(self.text, tx + l.w / 2, y + l.h / 2,
+            { alignX = "center", alignY = "center", color = self.disabled and P.textDim or self.textColor })
     end,
 }
 
@@ -3558,7 +3590,7 @@ return _G.DXUI.registry.define {
             canvas:rect(x + 3, y + (l.h - boxSize) / 2 + 3, boxSize - 6, boxSize - 6, P.white)
         end
         if self.text ~= "" then
-            canvas:text(self.text, x + boxSize + 6, y + l.h / 2, { color = P.text })
+            canvas:text(self.text, x + boxSize + 6, y + l.h / 2, { alignY = "center", color = P.text })
         end
     end,
 }
@@ -3611,10 +3643,10 @@ return _G.DXUI.registry.define {
         -- поле выбора
         canvas:rect(x, y, l.w, l.h, P.bgHover, { radius = 4 })
         local current = self.items and self.items[self.selectedIndex] or nil
-        canvas:text(tostring(current or "..."), x + 8, y + l.h / 2, { color = P.text })
+        canvas:text(tostring(current or "..."), x + 8, y + l.h / 2, { alignY = "center", color = P.text })
         -- стрелка
         local ax = x + l.w - 13
-        canvas:text(self.opened and "^" or "v", ax, y + l.h / 2, { color = P.textDim })
+        canvas:text(self.opened and "^" or "v", ax, y + l.h / 2, { alignY = "center", color = P.textDim })
         -- раскрытый список
         if self.opened then
             local items = self.items or {}
@@ -3623,7 +3655,7 @@ return _G.DXUI.registry.define {
             canvas:rect(x, y + l.h, l.w, n * ih, P.windowBg, { radius = 4 })
             for i = 1, n do
                 local iy = y + l.h + (i - 1) * ih
-                canvas:text(tostring(items[i]), x + 8, iy + ih / 2, { color = P.text })
+                canvas:text(tostring(items[i]), x + 8, iy + ih / 2, { alignY = "center", color = P.text })
             end
         end
     end,
@@ -3668,7 +3700,7 @@ return _G.DXUI.registry.define {
             if i == self.hoverIndex then
                 canvas:rect(x, iy, l.w, self.itemHeight, P.accentDim)
             end
-            canvas:text(tostring(items[i].text or ""), x + 10, iy + self.itemHeight / 2, { color = P.text })
+            canvas:text(tostring(items[i].text or ""), x + 10, iy + self.itemHeight / 2, { alignY = "center", color = P.text })
         end
     end,
 }
@@ -3749,13 +3781,13 @@ return _G.DXUI.registry.define {
         canvas:rect(x, y, l.w, l.h, P.bg, { radius = 4 })
         local text = ed.text
         if text == "" and self.placeholder ~= "" then
-            canvas:text(self.placeholder, x + 8, y + l.h / 2, { color = P.textDim })
+            canvas:text(self.placeholder, x + 8, y + l.h / 2, { alignY = "center", color = P.textDim })
         else
             if self.password then
                 local masked = ("*"):rep(#text)
-                canvas:text(masked, x + 8, y + l.h / 2, { color = P.text })
+                canvas:text(masked, x + 8, y + l.h / 2, { alignY = "center", color = P.text })
             else
-                canvas:text(text, x + 8, y + l.h / 2, { color = P.text })
+                canvas:text(text, x + 8, y + l.h / 2, { alignY = "center", color = P.text })
             end
         end
     end,
@@ -3829,7 +3861,7 @@ return _G.DXUI.registry.define {
                         item = item.text
                     end
                     canvas:rect(cellX, rowY, colW, rh, row % 2 == 0 and P.bg or P.bgHover)
-                    canvas:text(tostring(item), cellX + 6, rowY + rh / 2, { color = P.text })
+                    canvas:text(tostring(item), cellX + 6, rowY + rh / 2, { alignY = "center", color = P.text })
                 end
             end
         end
@@ -3949,7 +3981,7 @@ return _G.DXUI.registry.define {
                     if idx == self.selectedIndex then
                         canvas:rect(x, rowY, l.w, rh, P.bgHover)
                     end
-                    canvas:text(tostring(items[idx]), x + 6, rowY + rh / 2, { color = P.text })
+                    canvas:text(tostring(items[idx]), x + 6, rowY + rh / 2, { alignY = "center", color = P.text })
                 end
             end
         end
@@ -4192,7 +4224,7 @@ local spec = _G.DXUI.registry.define {
             canvas:rect(x + 5, cy + 5, d - 10, d - 10, P.white, { radius = (d - 10) / 2 })
         end
         if self.text ~= "" then
-            canvas:text(self.text, x + d + 6, y + l.h / 2, { color = P.text })
+            canvas:text(self.text, x + d + 6, y + l.h / 2, { alignY = "center", color = P.text })
         end
     end,
 }
@@ -4413,7 +4445,8 @@ return _G.DXUI.registry.define {
         for i = 1, n do
             local tx = x + (i - 1) * tabW
             canvas:rect(tx, y, tabW, self.tabHeight, i == self.activeIndex and P.bgHover or P.bgDisabled)
-            canvas:text(tostring(tabs[i].text or ""), tx + tabW / 2, y + self.tabHeight / 2, { color = P.text })
+            canvas:text(tostring(tabs[i].text or ""), tx + tabW / 2, y + self.tabHeight / 2,
+                { alignX = "center", alignY = "center", color = P.text })
         end
         canvas:rect(x, y + self.tabHeight, l.w, l.h - self.tabHeight, P.bg)
         -- контент вкладки — ребёнок (page) в дереве виджетов
@@ -4456,7 +4489,7 @@ return _G.DXUI.registry.define {
         local l = rawget(self, "_").lay
         if self.text == "" then return end
         canvas:rect(x, y, l.w, l.h, P.bg, { radius = 4 })
-        canvas:text(self.text, x + 8, y + l.h / 2, { color = P.text })
+        canvas:text(self.text, x + 8, y + l.h / 2, { alignY = "center", color = P.text })
     end,
 }
 
@@ -4505,7 +4538,7 @@ return _G.DXUI.registry.define {
                 if row * rh - self.scrollY >= 0 and (row - 1) * rh - self.scrollY <= l.h then
                     local rowY = y + (row - 1) * rh - self.scrollY
                     local indent = x + depth * 16
-                    canvas:text(tostring(node.text or ""), indent + 6, rowY + rh / 2, { color = P.text })
+                    canvas:text(tostring(node.text or ""), indent + 6, rowY + rh / 2, { alignY = "center", color = P.text })
                 end
                 if node.children and node.open then
                     drawLevel(node.children, depth + 1)
@@ -4556,7 +4589,7 @@ return _G.DXUI.registry.define {
         canvas:rect(x, y, l.w, l.h, P.windowBg, { radius = 6 })
         -- заголовок
         canvas:rect(x, y, l.w, self.headerHeight, P.bgHover, { radius = 6 })
-        canvas:text(self.title, x + 10, y + self.headerHeight / 2, { color = P.text })
+        canvas:text(self.title, x + 10, y + self.headerHeight / 2, { alignY = "center", color = P.text })
         -- контент рисуют дети с собственным смещением через lay
     end,
 }

@@ -41,7 +41,7 @@ return _G.DXUI.registry.define {
                 if row * rh - self.scrollY >= 0 and (row - 1) * rh - self.scrollY <= l.h then
                     local rowY = y + (row - 1) * rh - self.scrollY
                     local indent = x + depth * 16
-                    canvas:text(tostring(node.text or ""), indent + 6, rowY + rh / 2, { color = P.text })
+                    canvas:text(tostring(node.text or ""), indent + 6, rowY + rh / 2, { alignY = "center", color = P.text })
                 end
                 if node.children and node.open then
                     drawLevel(node.children, depth + 1)

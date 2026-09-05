@@ -48,11 +48,26 @@ function backend:rect(x, y, w, h, color, radius)
     end
 end
 
-function backend:text(str, x, y, font, color)
+function backend:text(str, x, y, font, color, alignX, alignY)
     local c = colorArg(color)
-    -- коробка большая (clip = false — она не клиппит): alignX/alignY
-    -- относительно коробки, вырожденная коробка в точку рискованна
-    dxDrawText(tostring(str), x, y, x + 10000, y + 10000, c, 1.0, font or "default", "left", "top", false, false, false, true)
+    alignX = alignX or "left"
+    alignY = alignY or "top"
+    -- MTA: alignX/alignY относительно КОРОБКИ текста; clip=false — коробка
+    -- не клиппит, поэтому делаем её большой и ставим якорную точку (x, y)
+    -- в нужное место коробки: для "center" это центр, для "right"/"bottom" — край
+    local left, right = x, x + 10000
+    if alignX == "center" then
+        left, right = x - 10000, x + 10000
+    elseif alignX == "right" then
+        left, right = x - 10000, x
+    end
+    local top, bottom = y, y + 10000
+    if alignY == "center" then
+        top, bottom = y - 10000, y + 10000
+    elseif alignY == "bottom" then
+        top, bottom = y - 10000, y
+    end
+    dxDrawText(tostring(str), left, top, right, bottom, c, 1.0, font or "default", alignX, alignY, false, false, false, true)
 end
 
 function backend:image(tex, x, y, w, h, rotate, slice)

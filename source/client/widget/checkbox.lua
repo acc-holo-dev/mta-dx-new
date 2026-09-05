@@ -31,7 +31,7 @@ return _G.DXUI.registry.define {
             canvas:rect(x + 3, y + (l.h - boxSize) / 2 + 3, boxSize - 6, boxSize - 6, P.white)
         end
         if self.text ~= "" then
-            canvas:text(self.text, x + boxSize + 6, y + l.h / 2, { color = P.text })
+            canvas:text(self.text, x + boxSize + 6, y + l.h / 2, { alignY = "center", color = P.text })
         end
     end,
 }

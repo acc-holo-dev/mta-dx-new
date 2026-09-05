@@ -71,13 +71,13 @@ return _G.DXUI.registry.define {
         canvas:rect(x, y, l.w, l.h, P.bg, { radius = 4 })
         local text = ed.text
         if text == "" and self.placeholder ~= "" then
-            canvas:text(self.placeholder, x + 8, y + l.h / 2, { color = P.textDim })
+            canvas:text(self.placeholder, x + 8, y + l.h / 2, { alignY = "center", color = P.textDim })
         else
             if self.password then
                 local masked = ("*"):rep(#text)
-                canvas:text(masked, x + 8, y + l.h / 2, { color = P.text })
+                canvas:text(masked, x + 8, y + l.h / 2, { alignY = "center", color = P.text })
             else
-                canvas:text(text, x + 8, y + l.h / 2, { color = P.text })
+                canvas:text(text, x + 8, y + l.h / 2, { alignY = "center", color = P.text })
             end
         end
     end,

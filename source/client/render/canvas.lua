@@ -4,7 +4,12 @@
 -- Контракт:
 --   * canvas.new() -> canvas
 --   * canvas:rect(x, y, w, h, color, opts?)   opts = { radius = n }
---   * canvas:text(str, x, y, opts)            opts = { font = f, color = c }
+--   * canvas:text(str, x, y, opts)            opts = { font = f, color = c,
+--                                             alignX = "left"|"center"|"right",
+--                                             alignY = "top"|"center"|"bottom" }
+--                                             (x, y) — якорная точка текста:
+--                                             для alignX="center" это центр по X
+--                                             (текст рисуется вокруг неё)
 --   * canvas:image(tex, x, y, w, h, opts?)    opts = { rotate = r, slice = {l,t,r,b} }
 --   * canvas:clip(x, y, w, h) | canvas:clip() — push/pop клип-региона
 --   * canvas:clear() — сброс буфера (команды возвращаются в пул)
@@ -59,6 +64,8 @@ function Canvas:rect(x, y, w, h, color, opts)
     cmd.tex = nil
     cmd.slice = nil
     cmd.rotate = nil
+    cmd.alignX = nil
+    cmd.alignY = nil
     push(self, cmd)
 end
 
@@ -69,6 +76,8 @@ function Canvas:text(str, x, y, opts)
     cmd.x, cmd.y = x, y
     cmd.font = opts and opts.font or nil
     cmd.color = opts and opts.color or nil
+    cmd.alignX = opts and opts.alignX or nil
+    cmd.alignY = opts and opts.alignY or nil
     cmd.w, cmd.h = nil, nil
     cmd.tex = nil
     cmd.radius = nil
@@ -88,6 +97,8 @@ function Canvas:image(tex, x, y, w, h, opts)
     cmd.radius = nil
     cmd.font = nil
     cmd.str = nil
+    cmd.alignX = nil
+    cmd.alignY = nil
     push(self, cmd)
 end
 
@@ -106,6 +117,8 @@ function Canvas:clip(x, y, w, h)
     cmd.font = nil
     cmd.slice = nil
     cmd.rotate = nil
+    cmd.alignX = nil
+    cmd.alignY = nil
     push(self, cmd)
 end
 
@@ -121,6 +134,8 @@ function Canvas:clear()
         cmd.str = nil
         cmd.tex = nil
         cmd.slice = nil
+        cmd.alignX = nil
+        cmd.alignY = nil
         pool[self.poolCount + i] = cmd
     end
     self.poolCount = self.poolCount + n
@@ -139,7 +154,7 @@ function Canvas:drain(backend)
         if kind == CMD_RECT then
             backend:rect(cmd.x, cmd.y, cmd.w, cmd.h, cmd.color, cmd.radius)
         elseif kind == CMD_TEXT then
-            backend:text(cmd.str, cmd.x, cmd.y, cmd.font, cmd.color)
+            backend:text(cmd.str, cmd.x, cmd.y, cmd.font, cmd.color, cmd.alignX, cmd.alignY)
         elseif kind == CMD_IMAGE then
             backend:image(cmd.tex, cmd.x, cmd.y, cmd.w, cmd.h, cmd.rotate, cmd.slice)
         elseif kind == CMD_CLIP_PUSH then

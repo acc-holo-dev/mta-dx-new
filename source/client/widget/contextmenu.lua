@@ -34,7 +34,7 @@ return _G.DXUI.registry.define {
             if i == self.hoverIndex then
                 canvas:rect(x, iy, l.w, self.itemHeight, P.accentDim)
             end
-            canvas:text(tostring(items[i].text or ""), x + 10, iy + self.itemHeight / 2, { color = P.text })
+            canvas:text(tostring(items[i].text or ""), x + 10, iy + self.itemHeight / 2, { alignY = "center", color = P.text })
         end
     end,
 }
