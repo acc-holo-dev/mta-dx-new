@@ -519,6 +519,8 @@ local type = type
 local rawget = rawget
 local setmetatable = setmetatable
 local pairs = pairs
+
+local DXUI = _G.DXUI -- call-time ссылки — по namespace загрузки, не по _G
 local error = error
 
 local prop = {}
@@ -682,7 +684,7 @@ function prop.set(node, key, value)
     if data[key] == value then
         return false -- равное значение не инвалидирует
     end
-    local tweener = _G.DXUI.tween
+    local tweener = DXUI.tween
     if spec.transition ~= nil and tweener ~= nil then
         local tweening = inod.tweening
         if tweening == nil or not tweening[key] then
@@ -1628,7 +1630,7 @@ local function compileSchema(spec)
             entry.transform = function(v, node)
                 local inod = rawget(node, "_")
                 if inod and inod.lay then
-                    local tokens = _G.DXUI.tokens
+                    local tokens = DXUI.tokens
                     local s = tokens and tokens.scale or 1
                     inod.lay[layField] = v * s
                 end
@@ -1698,12 +1700,12 @@ function registry.define(spec)
     -- события указателя до release идут этому виджету (task.md §3.4);
     -- dispatcher подключается лениво: input/ грузится после registry
     rawset(WidgetClass, "capturePointer", function(self)
-        _G.DXUI.dispatcher.capture(self)
+        DXUI.dispatcher.capture(self)
     end)
 
     -- уничтожение: снять фокус, если он был здесь (input/ лениво)
     rawset(WidgetClass, "destroy", function(self)
-        local focus = _G.DXUI.focus
+        local focus = DXUI.focus
         if focus and focus.get() == self then
             focus.onNodeDestroyed(self)
         end
@@ -1736,8 +1738,17 @@ function registry.create(name, props)
     local node = WidgetClass.new(props)
     local children = props and props.children
     if children then
+        -- ребёнок мог уже быть корнем кадра (фабрика ui.* зовёт frame.add
+        -- ДО create) — снимаем с корней, иначе он окажется в кадре дважды
+        -- (ленивая ссылка, как dispatcher в capturePointer: render/ грузится
+        -- после registry/, к моменту вызова есть всегда)
+        local frame = DXUI.frame
         for i = 1, #children do
-            node:addChild(children[i])
+            local c = children[i]
+            if frame then
+                frame.remove(c)
+            end
+            node:addChild(c)
         end
     end
     return node
@@ -3703,7 +3714,7 @@ end
 
 -- один твине на свойство узла: retarget от текущего значения
 local function schedule(node, key, toValue, duration, easeName, start)
-    local DXUIeasing = _G.DXUI.easing
+    local DXUIeasing = DXUI.easing
     local ease = (easeName and DXUIeasing[easeName]) or DXUIeasing.outQuad
     local tw = findActive(node, key)
     if tw then
@@ -3719,7 +3730,7 @@ local function schedule(node, key, toValue, duration, easeName, start)
         to = toValue,
         dur = duration,
         ease = ease,
-        start = start or _G.DXUI.time.now(),
+        start = start or DXUI.time.now(),
         after = nil,
     }
     active[count] = tw
@@ -3751,7 +3762,7 @@ function tween.after(delay, fn)
     local tw = {
         node = nil,
         after = fn,
-        start = _G.DXUI.time.now(),
+        start = DXUI.time.now(),
         delay = delay,
         key = nil,
     }
@@ -3789,7 +3800,7 @@ end
 -- обновление твинеров; вызывается boot.lua каждый кадр
 function tween.tick()
     if count == 0 then return 0 end
-    local now = _G.DXUI.time.now()
+    local now = DXUI.time.now()
     local forceSet = prop.forceSet
     local n = count      -- граница на входе: твины, запланированные
     local w = 0          -- из after-колбэков, живут в n+1..count
@@ -4195,6 +4206,8 @@ local prop = _G.DXUI.prop
 
 local editor_mod = _G.DXUI.editor
 
+local DXUI = _G.DXUI -- call-time ссылки — по namespace загрузки, не по _G
+
 return _G.DXUI.registry.define {
     name = "Edit",
     interactive = true,
@@ -4259,18 +4272,18 @@ return _G.DXUI.registry.define {
                 return ed:undo()
             elseif key == "c" then
                 if ed:hasSelection() then
-                    _G.DXUI.dispatcher.setClipboard(ed:selectionText())
+                    DXUI.dispatcher.setClipboard(ed:selectionText())
                     return true
                 end
                 return false
             elseif key == "x" then
                 if ed:hasSelection() then
-                    _G.DXUI.dispatcher.setClipboard(ed:selectionText())
+                    DXUI.dispatcher.setClipboard(ed:selectionText())
                     return ed:delete(1)
                 end
                 return false
             elseif key == "v" then
-                local text = _G.DXUI.dispatcher.getClipboard()
+                local text = DXUI.dispatcher.getClipboard()
                 if text and text ~= "" and (self.maxLength <= 0 or #ed.text < self.maxLength) then
                     return ed:insert(text)
                 end
@@ -4588,6 +4601,7 @@ end)();
 
 local P = _G.DXUI.palette
 local prop = _G.DXUI.prop
+local DXUI = _G.DXUI -- call-time ссылки — по namespace загрузки, не по _G
 
 return _G.DXUI.registry.define {
     name = "Memo",
@@ -4638,18 +4652,18 @@ return _G.DXUI.registry.define {
                 return ed:undo()
             elseif key == "c" then
                 if ed:hasSelection() then
-                    _G.DXUI.dispatcher.setClipboard(ed:selectionText())
+                    DXUI.dispatcher.setClipboard(ed:selectionText())
                     return true
                 end
                 return false
             elseif key == "x" then
                 if ed:hasSelection() then
-                    _G.DXUI.dispatcher.setClipboard(ed:selectionText())
+                    DXUI.dispatcher.setClipboard(ed:selectionText())
                     return ed:delete(1)
                 end
                 return false
             elseif key == "v" then
-                local text = _G.DXUI.dispatcher.getClipboard()
+                local text = DXUI.dispatcher.getClipboard()
                 if text and text ~= "" then
                     return ed:insert(text)
                 end
@@ -5209,6 +5223,9 @@ end)();
 
 local P = _G.DXUI.palette
 local prop = _G.DXUI.prop
+local DXUI = _G.DXUI -- namespace на момент загрузки: вызовы идут по нему,
+                     -- а не по _G (у потребителя import(2) хост может
+                     -- подменять _G.DXUI между загрузкой и вызовом)
 
 local MARKER = 6 -- зона захвата маркера у края окна
 
@@ -5308,7 +5325,7 @@ return _G.DXUI.registry.define {
         self:signal("drag"):connect(function(dx, dy)
             -- двигаем/растягиваем только если окно захватило указатель:
             -- иначе drag по телу или по детям перетаскивал бы окно
-            if _G.DXUI.dispatcher.getCaptured() ~= self then return end
+            if DXUI.dispatcher.getCaptured() ~= self then return end
             if rawget(self, "_").resizeMode then
                 self:resizeBy(dx, dy)
             else
@@ -5324,7 +5341,7 @@ return _G.DXUI.registry.define {
         canvas:text(self.title, x + 10, y + self.headerHeight / 2, { alignY = "center", color = P.text })
         -- контент рисуют дети с собственным смещением через lay
         -- маркеры ресайза — когда окно в фокусе (§4.1)
-        local focus = _G.DXUI.focus
+        local focus = DXUI.focus
         if self.resizable and focus and focus.get() == self then
             local M = MARKER
             canvas:rect(x, y, M, M, P.accent)
@@ -5338,6 +5355,205 @@ return _G.DXUI.registry.define {
         end
     end,
 }
+
+end)();
+(function()
+-- api/screens.lua — Screen Stack: push/pop экранов с историей (task.md §3.8)
+--
+-- Экран — корневой виджет (обычно Window/Panel), переданный в управление
+-- стеку. push прячет текущий экран (visible=false), показывает новый и
+-- запоминает фокус; pop снимает экран, возвращает прежний и ВОССТАНАВЛИВАЕТ
+-- фокус. Переходы — transition-токены: "slide" твином координаты (конвейер
+-- твинов §5); "fade" ждёт opacity-канал в холсте (не реализован).
+--
+-- Сериализация раскладки (§3.8): saveLayout() -> XML-строка (позиции/размеры
+-- окон среди корней кадра + текущая палитра), loadLayout(xml) применяет.
+-- Файловый I/O — за вызывающей стороной (whitelist §2): boot пишет
+-- layout.xml командами dxui:save-layout / dxui:load-layout, потребители
+-- хранят строку как им удобно.
+
+local DXUI = _G.DXUI
+
+local screens = {}
+
+local stack = {}  -- { root=, prev=, prevFocus= }
+local current = nil
+
+-- первый фокусируемый виджет экрана (pre-order, видимые ветви)
+local function firstFocusable(root)
+    local focus = DXUI.focus
+    local found = nil
+    local function walk(node)
+        if found then return end
+        local inod = rawget(node, "_")
+        if inod == nil then return end
+        if inod.data.visible == false then return end
+        local spec = rawget(node, "_renderSpec")
+        if spec and spec.focusable then
+            found = node
+            return
+        end
+        local children = inod.children
+        for i = 1, #children do
+            walk(children[i])
+        end
+    end
+    walk(root)
+    return found
+end
+
+-- push(root, opts?): показать экран поверх текущего.
+-- opts.transition = "slide" — появление снизу вверх (0.25 с, outQuad)
+function screens.push(root, opts)
+    if type(root) ~= "table" or current == root then return root end
+    local prev = current
+    local prevFocus = DXUI.focus.get()
+    if prev then
+        prev.visible = false
+    end
+    DXUI.frame.add(root)
+    stack[#stack + 1] = { root = root, prev = prev, prevFocus = prevFocus }
+    current = root
+    if opts and opts.transition == "slide" then
+        local targetY = root.y
+        root.y = targetY + 40
+        DXUI.tween.to(root, 0.25, { y = targetY, easing = "outQuad" })
+    end
+    local f = firstFocusable(root)
+    if f then
+        DXUI.focus.set(f)
+        if DXUI.focus.isEditable(f) then
+            DXUI.focus.setEditing(true)
+        end
+    else
+        DXUI.focus.clear()
+    end
+    return root
+end
+
+-- pop(opts?): снять текущий экран и вернуть предыдущий.
+-- opts.destroy = true — уничтожить корень снятого экрана
+function screens.pop(opts)
+    local entry = stack[#stack]
+    if entry == nil then return nil end
+    stack[#stack] = nil
+    DXUI.frame.remove(entry.root)
+    if opts and opts.destroy and entry.root.destroy then
+        entry.root:destroy()
+    end
+    current = entry.prev
+    if current then
+        current.visible = true
+    end
+    -- возврат восстанавливает фокус (§3.8), если узел ещё жив
+    local pf = entry.prevFocus
+    if pf ~= nil and rawget(pf, "_") ~= nil then
+        DXUI.focus.set(pf)
+    else
+        DXUI.focus.clear()
+    end
+    return entry.root
+end
+
+function screens.current()
+    return current
+end
+
+function screens.depth()
+    return #stack
+end
+
+-- снять все экраны (destroy корней — по умолчанию)
+function screens.clear(opts)
+    local destroy = opts == nil or opts.destroy ~= false
+    for i = #stack, 1, -1 do
+        local e = stack[i]
+        DXUI.frame.remove(e.root)
+        if destroy and e.root.destroy then
+            e.root:destroy()
+        end
+        stack[i] = nil
+    end
+    current = nil
+    DXUI.focus.clear()
+end
+
+-- ---------------------------------------------------------------- сериализация
+
+local function esc(s)
+    return tostring(s):gsub("&", "&amp;"):gsub('"', "&quot;"):gsub("<", "&lt;")
+end
+
+-- XML: окна среди корней кадра (по заголовку) + текущие значения палитры
+function screens.saveLayout()
+    local parts = {}
+    parts[#parts + 1] = '<dxui version="2">'
+    local roots = DXUI.frame.roots()
+    for i = 1, #roots do
+        local inod = rawget(roots[i], "_")
+        if inod and inod.widgetType == "Window" then
+            local d = inod.data
+            parts[#parts + 1] = ('  <window title="%s" x="%d" y="%d" width="%d" height="%d"/>')
+                :format(esc(d.title or ""), d.x or 0, d.y or 0, d.width or 0, d.height or 0)
+        end
+    end
+    local palette = DXUI.palette
+    local keys = {}
+    for k in pairs(palette) do
+        keys[#keys + 1] = k
+    end
+    table.sort(keys)
+    for i = 1, #keys do
+        local k = keys[i]
+        parts[#parts + 1] = ('  <color name="%s" value="0x%08X"/>'):format(k, palette[k])
+    end
+    parts[#parts + 1] = "</dxui>"
+    return table.concat(parts, "\n")
+end
+
+-- применить XML из saveLayout; окна находятся по заголовку среди корней
+function screens.loadLayout(xml)
+    if type(xml) ~= "string" then return false end
+    local applied = false
+    local byTitle = {}
+    local roots = DXUI.frame.roots()
+    for i = 1, #roots do
+        local inod = rawget(roots[i], "_")
+        if inod and inod.widgetType == "Window" then
+            byTitle[tostring(inod.data.title)] = roots[i]
+        end
+    end
+    for attrs in xml:gmatch("<window%s+(.-)/>") do
+        local t = {}
+        for k, v in attrs:gmatch('(%w+)="(.-)"') do
+            t[k] = v
+        end
+        local win = byTitle[t.title]
+        if win then
+            if t.x then win.x = tonumber(t.x) end
+            if t.y then win.y = tonumber(t.y) end
+            if t.width then win.width = tonumber(t.width) end
+            if t.height then win.height = tonumber(t.height) end
+            applied = true
+        end
+    end
+    local theme = {}
+    for name, value in xml:gmatch('<color%s+name="(.-)"%s+value="(.-)"%s*/>') do
+        local n = tonumber(value)
+        if n then
+            theme[name] = n
+        end
+    end
+    if next(theme) then
+        DXUI.theme.apply(theme)
+        applied = true
+    end
+    return applied
+end
+
+if _G.DXUI == nil then _G.DXUI = {} end
+DXUI.screens = screens
+return screens
 
 end)();
 (function()
@@ -5434,7 +5650,7 @@ function inspector.overlayEnable(on)
     enabled = on == true
     if enabled and instance == nil then
         instance = registry.create("DebugOverlay", { x = 8, y = 8, width = 280, height = 200 })
-        _G.DXUI.frame.add(instance)
+        _G.DXUI.frame.add(instance) -- publish-паттерн: читается на момент вызова
     end
     if instance ~= nil then
         instance.visible = enabled

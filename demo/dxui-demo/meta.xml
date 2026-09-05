@@ -11,5 +11,6 @@
     <script src="hud.lua" type="client" />
     <script src="bank.lua" type="client" />
     <script src="themes.lua" type="client" />
+    <script src="screens.lua" type="client" />
     <script src="client.lua" type="client" />
 </meta>

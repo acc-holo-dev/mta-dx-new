@@ -33,7 +33,7 @@ local function compileSchema(spec)
             entry.transform = function(v, node)
                 local inod = rawget(node, "_")
                 if inod and inod.lay then
-                    local tokens = _G.DXUI.tokens
+                    local tokens = DXUI.tokens
                     local s = tokens and tokens.scale or 1
                     inod.lay[layField] = v * s
                 end
@@ -103,12 +103,12 @@ function registry.define(spec)
     -- события указателя до release идут этому виджету (task.md §3.4);
     -- dispatcher подключается лениво: input/ грузится после registry
     rawset(WidgetClass, "capturePointer", function(self)
-        _G.DXUI.dispatcher.capture(self)
+        DXUI.dispatcher.capture(self)
     end)
 
     -- уничтожение: снять фокус, если он был здесь (input/ лениво)
     rawset(WidgetClass, "destroy", function(self)
-        local focus = _G.DXUI.focus
+        local focus = DXUI.focus
         if focus and focus.get() == self then
             focus.onNodeDestroyed(self)
         end
@@ -141,8 +141,17 @@ function registry.create(name, props)
     local node = WidgetClass.new(props)
     local children = props and props.children
     if children then
+        -- ребёнок мог уже быть корнем кадра (фабрика ui.* зовёт frame.add
+        -- ДО create) — снимаем с корней, иначе он окажется в кадре дважды
+        -- (ленивая ссылка, как dispatcher в capturePointer: render/ грузится
+        -- после registry/, к моменту вызова есть всегда)
+        local frame = DXUI.frame
         for i = 1, #children do
-            node:addChild(children[i])
+            local c = children[i]
+            if frame then
+                frame.remove(c)
+            end
+            node:addChild(c)
         end
     end
     return node

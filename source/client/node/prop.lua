@@ -13,6 +13,8 @@ local type = type
 local rawget = rawget
 local setmetatable = setmetatable
 local pairs = pairs
+
+local DXUI = _G.DXUI -- call-time ссылки — по namespace загрузки, не по _G
 local error = error
 
 local prop = {}
@@ -176,7 +178,7 @@ function prop.set(node, key, value)
     if data[key] == value then
         return false -- равное значение не инвалидирует
     end
-    local tweener = _G.DXUI.tween
+    local tweener = DXUI.tween
     if spec.transition ~= nil and tweener ~= nil then
         local tweening = inod.tweening
         if tweening == nil or not tweening[key] then

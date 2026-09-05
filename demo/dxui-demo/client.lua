@@ -11,6 +11,7 @@ local scenarios = {
     hud = DemoHud,
     bank = DemoBank,
     themes = DemoThemes,
+    screens = DemoScreens,
 }
 
 local active = nil
@@ -22,7 +23,7 @@ local function close()
     end
 end
 
-local SCENARIO_NAMES = { "login", "inventory", "hud", "bank", "themes" }
+local SCENARIO_NAMES = { "login", "inventory", "hud", "bank", "themes", "screens" }
 
 addCommandHandler("dxuidemo", function(_, name)
     if name == nil or name == "" then

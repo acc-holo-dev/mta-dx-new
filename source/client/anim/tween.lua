@@ -44,7 +44,7 @@ end
 
 -- один твине на свойство узла: retarget от текущего значения
 local function schedule(node, key, toValue, duration, easeName, start)
-    local DXUIeasing = _G.DXUI.easing
+    local DXUIeasing = DXUI.easing
     local ease = (easeName and DXUIeasing[easeName]) or DXUIeasing.outQuad
     local tw = findActive(node, key)
     if tw then
@@ -60,7 +60,7 @@ local function schedule(node, key, toValue, duration, easeName, start)
         to = toValue,
         dur = duration,
         ease = ease,
-        start = start or _G.DXUI.time.now(),
+        start = start or DXUI.time.now(),
         after = nil,
     }
     active[count] = tw
@@ -92,7 +92,7 @@ function tween.after(delay, fn)
     local tw = {
         node = nil,
         after = fn,
-        start = _G.DXUI.time.now(),
+        start = DXUI.time.now(),
         delay = delay,
         key = nil,
     }
@@ -130,7 +130,7 @@ end
 -- обновление твинеров; вызывается boot.lua каждый кадр
 function tween.tick()
     if count == 0 then return 0 end
-    local now = _G.DXUI.time.now()
+    local now = DXUI.time.now()
     local forceSet = prop.forceSet
     local n = count      -- граница на входе: твины, запланированные
     local w = 0          -- из after-колбэков, живут в n+1..count

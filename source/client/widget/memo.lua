@@ -2,6 +2,7 @@
 
 local P = _G.DXUI.palette
 local prop = _G.DXUI.prop
+local DXUI = _G.DXUI -- call-time ссылки — по namespace загрузки, не по _G
 
 return _G.DXUI.registry.define {
     name = "Memo",
@@ -52,18 +53,18 @@ return _G.DXUI.registry.define {
                 return ed:undo()
             elseif key == "c" then
                 if ed:hasSelection() then
-                    _G.DXUI.dispatcher.setClipboard(ed:selectionText())
+                    DXUI.dispatcher.setClipboard(ed:selectionText())
                     return true
                 end
                 return false
             elseif key == "x" then
                 if ed:hasSelection() then
-                    _G.DXUI.dispatcher.setClipboard(ed:selectionText())
+                    DXUI.dispatcher.setClipboard(ed:selectionText())
                     return ed:delete(1)
                 end
                 return false
             elseif key == "v" then
-                local text = _G.DXUI.dispatcher.getClipboard()
+                local text = DXUI.dispatcher.getClipboard()
                 if text and text ~= "" then
                     return ed:insert(text)
                 end

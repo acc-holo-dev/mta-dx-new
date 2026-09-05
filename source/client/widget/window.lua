@@ -3,6 +3,9 @@
 
 local P = _G.DXUI.palette
 local prop = _G.DXUI.prop
+local DXUI = _G.DXUI -- namespace на момент загрузки: вызовы идут по нему,
+                     -- а не по _G (у потребителя import(2) хост может
+                     -- подменять _G.DXUI между загрузкой и вызовом)
 
 local MARKER = 6 -- зона захвата маркера у края окна
 
@@ -102,7 +105,7 @@ return _G.DXUI.registry.define {
         self:signal("drag"):connect(function(dx, dy)
             -- двигаем/растягиваем только если окно захватило указатель:
             -- иначе drag по телу или по детям перетаскивал бы окно
-            if _G.DXUI.dispatcher.getCaptured() ~= self then return end
+            if DXUI.dispatcher.getCaptured() ~= self then return end
             if rawget(self, "_").resizeMode then
                 self:resizeBy(dx, dy)
             else
@@ -118,7 +121,7 @@ return _G.DXUI.registry.define {
         canvas:text(self.title, x + 10, y + self.headerHeight / 2, { alignY = "center", color = P.text })
         -- контент рисуют дети с собственным смещением через lay
         -- маркеры ресайза — когда окно в фокусе (§4.1)
-        local focus = _G.DXUI.focus
+        local focus = DXUI.focus
         if self.resizable and focus and focus.get() == self then
             local M = MARKER
             canvas:rect(x, y, M, M, P.accent)

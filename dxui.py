@@ -109,10 +109,13 @@ BUNDLE_LEVEL = 8  # [=========[ ... ]=========]
 
 
 def bundle_files():
-    """Модули, входящие в import(2): всё кроме boot.lua и api/ (они —
-    для собственного инстанса dxui-ресурса; потребителю нужен свой мост)."""
+    """Модули, входящие в import(2): всё кроме boot.lua, api/bundle.lua
+    (сам бандл) и api/exports.lua (мост — GLUE исполняется потребителем
+    отдельно). Остальные api/-модули (screens и далее) потребителю нужны.
+    Сравнение по нормализованному пути: boot_order даёт '/', os.path — '\\'."""
     for rel in boot_order():
-        if rel == "boot.lua" or rel.startswith("api/"):
+        norm = rel.replace(os.sep, "/")
+        if norm == "boot.lua" or norm == "api/bundle.lua" or norm.startswith("api/exports"):
             continue
         yield rel
 

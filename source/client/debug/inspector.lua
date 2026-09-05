@@ -91,7 +91,7 @@ function inspector.overlayEnable(on)
     enabled = on == true
     if enabled and instance == nil then
         instance = registry.create("DebugOverlay", { x = 8, y = 8, width = 280, height = 200 })
-        _G.DXUI.frame.add(instance)
+        _G.DXUI.frame.add(instance) -- publish-паттерн: читается на момент вызова
     end
     if instance ~= nil then
         instance.visible = enabled
