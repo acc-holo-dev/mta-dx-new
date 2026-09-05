@@ -181,8 +181,10 @@ function backend:image(tex, x, y, w, h, rotate, slice)
         end
         -- фолбэк: slice без размеров исходника — целиком
     end
-    -- MTA: dxDrawImage(x, y, w, h, tex, sourceX, sourceY, sourceW, sourceH, rotate)
-    dxDrawImage(x, y, w, h, tex, 0, 0, 0, 0, rotate or 0)
+    -- MTA: dxDrawImage(posX, posY, w, h, image, [rotation, rotCX, rotCY, color, postGUI])
+    -- source-координат у dxDrawImage НЕТ (это dxDrawImageSection); rotate —
+    -- на 6-й позиции, НЕ в postGUI; color=white (нет тонировки на Image-виджете)
+    dxDrawImage(x, y, w, h, tex, rotate or 0, 0, 0, 0xFFFFFFFF, true)
 end
 
 function backend:clipPush(x, y, w, h)
