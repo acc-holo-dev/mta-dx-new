@@ -61,8 +61,10 @@ ui.Window {
 | `ui.Screen` / `ui.screens` | Screen Stack (§3.8): `push(root, opts?)` / `pop(opts?)` / `current()` / `depth()` / `clear(opts?)`; переход `opts.transition = "slide"`; возврат восстанавливает фокус; `saveLayout()` → XML-строка (окна + палитра), `loadLayout(xml)` |
 | `ui.dragdrop` | Drag-and-drop (§4.3): `setSource(node, payload)`, `registerTarget(node, slots)` (nil — вся площадь; `{ {id,x,y,w,h}, … }` — слоты в локальных координатах), `unregister(node)`, `active()` — пара для инспектора. Сигналы: источник `dragStart`/`dragEnd(accepted, target, slot)`; цель `dragEnter`/`dragOver`/`dragLeave`/`drop` |
 | `ui.observable` / `ui.bind` | Реактивные ячейки (T21): `observable(initial)` → `get/set/subscribe`; `bind(widget, { prop = obs })` — мост в свойства виджета, `handle:disconnect()` |
+| `ui.scenario` | Сценарий как данные (§3.8): `ui.scenario.build(spec, handlers?)` — таблица `{type, props, children}` → дерево виджетов; строковый `onPress` резолвится из `handlers` (с сервера функции не едут — имена да) |
 | `ui.composition` | Слоты виджетов (T20): `setSlot(widget, name, child)`, `childBySlot(widget, name)` |
 | `ui.destroyAll` | Полный демонтаж инстанса потребителя (T36): корни, фокус, твины, стек экранов; зовётся из `onClientResourceStop` |
+| `cache` (свойство) | RT-кэш поддерева (§6.1): `ui.Panel { cache = true }` растеризуется в текстуру, пока чисто — один image вместо обхода; пересборка на грязном потомке/смене размера. Auto-LOD: при долгом кадре (EMA > 4 мс) бэкенд сам гасит скругления |
 | `ui.animation` / `ui.theme` / `ui.registry` | твины, темы, реестр виджетов |
 
 ## Миграция с DGS (§9.3)

@@ -3,7 +3,9 @@
 -- Демонстрирует: статичный HUD, изменение данных без пересоздания узлов.
 
 function DemoHud(ui)
-    local root = ui.Panel { x = 20, y = 20, width = 260, height = 90 }
+    -- cache=true: HUD растеризуется в текстуру и пересобирается только
+    -- при изменении данных (здоровье тикает раз в секунду — §6.1 в живую)
+    local root = ui.Panel { x = 20, y = 20, width = 260, height = 90, cache = true }
 
     local health = ui.Label { text = "Здоровье: 100", x = 12, y = 12, width = 200, height = 24 }
     local money = ui.Label { text = "Деньги: $0", x = 12, y = 40, width = 200, height = 24 }
