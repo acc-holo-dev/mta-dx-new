@@ -20,6 +20,7 @@ local type = type
 local pcall = pcall
 local rawget = rawget
 local math_floor = math.floor
+local DXUI = _G.DXUI -- Auto-LOD (§6.1): lod.dropRadius гасит скругления
 local dxDrawRectangle = dxDrawRectangle
 local dxDrawText = dxDrawText
 local dxDrawImage = dxDrawImage
@@ -113,7 +114,8 @@ end
 
 function backend:rect(x, y, w, h, color, radius)
     local c = colorArg(color)
-    if radius and radius > 0 then
+    -- Auto-LOD: долгой кадр -> рисуем без скругления (§6.1)
+    if radius and radius > 0 and not (DXUI.lod and DXUI.lod.dropRadius) then
         local sh = getRoundedShader()
         if sh then
             -- радиус больше половины стороны не имеет смысла

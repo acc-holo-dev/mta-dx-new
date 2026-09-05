@@ -2004,6 +2004,7 @@ local type = type
 local pcall = pcall
 local rawget = rawget
 local math_floor = math.floor
+local DXUI = _G.DXUI -- Auto-LOD (§6.1): lod.dropRadius гасит скругления
 local dxDrawRectangle = dxDrawRectangle
 local dxDrawText = dxDrawText
 local dxDrawImage = dxDrawImage
@@ -2097,7 +2098,8 @@ end
 
 function backend:rect(x, y, w, h, color, radius)
     local c = colorArg(color)
-    if radius and radius > 0 then
+    -- Auto-LOD: долгой кадр -> рисуем без скругления (§6.1)
+    if radius and radius > 0 and not (DXUI.lod and DXUI.lod.dropRadius) then
         local sh = getRoundedShader()
         if sh then
             -- радиус больше половины стороны не имеет смысла
@@ -2373,9 +2375,22 @@ end)();
 -- destroyElement вне whitelist (§2), ручного release нет.
 
 local DXUI = _G.DXUI
+local os_clock = os.clock -- headless/CI; в MTA кадр и так вызывается платформой
+local clock = os_clock    -- тесты подменяют frame.setClock
 
 local frame = {}
 local roots = {}
+
+-- Auto-LOD (§6.1): при долгом кадре бэкенд удешевляет отрисовку
+-- (отключает скругления и т.п.). Порог — 4 мс EMA стоимости пайплайна.
+DXUI.lod = { dropRadius = false }
+local lodEMA = 0
+local lodThreshold = 4 -- мс; перекрывается frame.setLodThreshold
+local profiled = true  -- os.clock есть и в MTA client; enableProfiling для тестов
+
+function frame.setLodThreshold(ms)
+    lodThreshold = ms or 4
+end
 
 local cacheBackend = nil  -- fn(w, h, sceneFn) -> texture | nil (тесты)
 local mtaAdapter = nil    -- ленивая обёртка backend_mta (контракт (sceneFn,w,h))
@@ -2568,11 +2583,30 @@ function frame.run(canvas)
     local prop = DXUI.prop
     prop.flush(prop.DIRTY.RENDER, markCacheStale)
     prop.flush(prop.DIRTY.LAYOUT, markCacheStale)
+    local t0 = profiled and clock() or nil
     for i = 1, #roots do
         layoutNode(roots[i])
     end
     for i = 1, #roots do
         renderNode(roots[i], canvas, 0, 0)
+    end
+    if t0 then
+        local cost = (clock() - t0) * 1000
+        lodEMA = lodEMA == 0 and cost or lodEMA * 0.9 + cost * 0.1
+        DXUI.lod.dropRadius = lodEMA > lodThreshold
+    end
+end
+
+-- тесты: подменить источник времени для детерминированного Auto-LOD
+function frame.setClock(fn)
+    clock = fn or os_clock
+end
+
+-- включить замер кадра для Auto-LOD (зовётся headless-бэкендом/тестами)
+function frame.enableProfiling(on)
+    profiled = on == true
+    if not profiled then
+        DXUI.lod.dropRadius = false
     end
 end
 
