@@ -2327,6 +2327,22 @@ function frame.remove(root)
     return false
 end
 
+-- поднять корень наверх: Z-порядок корней = позиция в списке
+-- (последний рисуется последним = поверх всех; hit-test берёт выше order)
+function frame.bringToFront(root)
+    local n = #roots
+    for i = 1, n do
+        if roots[i] == root then
+            if i < n then
+                table.remove(roots, i)
+                roots[n] = root
+            end
+            return true
+        end
+    end
+    return false
+end
+
 function frame.clear()
     for i = #roots, 1, -1 do
         roots[i] = nil
@@ -2765,6 +2781,18 @@ local function onClick(button, state, x, y)
         pointer.dragging = false
         if targetAllowed(pointer.target) and pointer.target ~= nil then
             pointer.target:emit("press", x, y)
+            -- §4.1 Window: bringToFront по клику — поднимаем КОРЕНЬ дерева
+            -- цели (окна живут корнями кадра; spec.raiseOnPress — флаг виджета)
+            local root = pointer.target
+            local parent = rawget(root, "_").parent
+            while parent do
+                root = parent
+                parent = rawget(root, "_").parent
+            end
+            local rspec = rawget(root, "_renderSpec")
+            if rspec and rspec.raiseOnPress then
+                DXUI.frame.bringToFront(root)
+            end
         end
     else
         if pointer.down and pointer.target then
@@ -4579,6 +4607,32 @@ return _G.DXUI.registry.define {
             doc = "Внутренний отступ контента",
         },
     },
+    -- §4.1: bringToFront по клику — dispatcher поднимает КОРЕНЬ дерева цели
+    raiseOnPress = true,
+    -- §4.1: drag за заголовок. Жесты — сигналы dispatcher (press/drag);
+    -- moveBy вызывается dispatcher'ом с дельтой движения указателя
+    init = function(self)
+        self:signal("press"):connect(function(_, py)
+            if not self.draggable then return end
+            -- мировая Y окна = сумма lay.y по цепочке родителей
+            local wy = 0
+            local cur = self
+            while cur do
+                wy = wy + rawget(cur, "_").lay.y
+                cur = rawget(cur, "_").parent
+            end
+            if py >= wy and py <= wy + self.headerHeight then
+                self:capturePointer()
+            end
+        end)
+        self:signal("drag"):connect(function(dx, dy)
+            -- двигаем только если заголовок захватил указатель: иначе drag
+            -- по телу окна (или по детям) перетаскивал бы окно
+            if _G.DXUI.dispatcher.getCaptured() == self then
+                self:moveBy(dx, dy)
+            end
+        end)
+    end,
     -- drag за заголовок (вызывается input/dispatcher с дельтой)
     moveBy = function(self, dx, dy)
         self.x = self.x + dx

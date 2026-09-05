@@ -153,6 +153,18 @@ local function onClick(button, state, x, y)
         pointer.dragging = false
         if targetAllowed(pointer.target) and pointer.target ~= nil then
             pointer.target:emit("press", x, y)
+            -- §4.1 Window: bringToFront по клику — поднимаем КОРЕНЬ дерева
+            -- цели (окна живут корнями кадра; spec.raiseOnPress — флаг виджета)
+            local root = pointer.target
+            local parent = rawget(root, "_").parent
+            while parent do
+                root = parent
+                parent = rawget(root, "_").parent
+            end
+            local rspec = rawget(root, "_renderSpec")
+            if rspec and rspec.raiseOnPress then
+                DXUI.frame.bringToFront(root)
+            end
         end
     else
         if pointer.down and pointer.target then

@@ -103,6 +103,22 @@ function frame.remove(root)
     return false
 end
 
+-- поднять корень наверх: Z-порядок корней = позиция в списке
+-- (последний рисуется последним = поверх всех; hit-test берёт выше order)
+function frame.bringToFront(root)
+    local n = #roots
+    for i = 1, n do
+        if roots[i] == root then
+            if i < n then
+                table.remove(roots, i)
+                roots[n] = root
+            end
+            return true
+        end
+    end
+    return false
+end
+
 function frame.clear()
     for i = #roots, 1, -1 do
         roots[i] = nil

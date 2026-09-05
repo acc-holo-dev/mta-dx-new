@@ -143,13 +143,8 @@ local function buildDemo()
     window:addChild(btnPlus)
     window:addChild(btnClose)
 
-    -- drag окна за заголовок: press в зоне тайтла захватывает указатель
-    window:signal("press"):connect(function()
-        window:capturePointer()
-    end)
-    window:signal("drag"):connect(function(dx, dy)
-        window:moveBy(dx, dy)
-    end)
+    -- drag за заголовок и bringToFront по клику — в спецификации Window
+    -- (§4.1): ручной wiring сигналов здесь не нужен
     return window
 end
 
@@ -165,17 +160,21 @@ end)
 -- dev: перечитываем тему по таймеру (файл = таблица переопределений токенов)
 
 if settings.debug then
+    local lastThemeSrc = nil
     setTimer(function()
         if fileExists("hot-theme.lua") then
             local f = fileOpen("hot-theme.lua")
             if f then
                 local src = fileRead(f, fileGetSize(f))
                 fileClose(f)
-                local chunk = loadstring(src)
-                if chunk then
-                    local ok, result = pcall(chunk)
-                    if ok and type(result) == "table" then
-                        DXUI.theme.apply(result)
+                if src ~= lastThemeSrc then
+                    lastThemeSrc = src
+                    local chunk = loadstring(src)
+                    if chunk then
+                        local ok, result = pcall(chunk)
+                        if ok and type(result) == "table" then
+                            DXUI.theme.apply(result)
+                        end
                     end
                 end
             end

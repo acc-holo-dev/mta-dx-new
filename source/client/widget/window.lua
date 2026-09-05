@@ -24,6 +24,32 @@ return _G.DXUI.registry.define {
             doc = "Внутренний отступ контента",
         },
     },
+    -- §4.1: bringToFront по клику — dispatcher поднимает КОРЕНЬ дерева цели
+    raiseOnPress = true,
+    -- §4.1: drag за заголовок. Жесты — сигналы dispatcher (press/drag);
+    -- moveBy вызывается dispatcher'ом с дельтой движения указателя
+    init = function(self)
+        self:signal("press"):connect(function(_, py)
+            if not self.draggable then return end
+            -- мировая Y окна = сумма lay.y по цепочке родителей
+            local wy = 0
+            local cur = self
+            while cur do
+                wy = wy + rawget(cur, "_").lay.y
+                cur = rawget(cur, "_").parent
+            end
+            if py >= wy and py <= wy + self.headerHeight then
+                self:capturePointer()
+            end
+        end)
+        self:signal("drag"):connect(function(dx, dy)
+            -- двигаем только если заголовок захватил указатель: иначе drag
+            -- по телу окна (или по детям) перетаскивал бы окно
+            if _G.DXUI.dispatcher.getCaptured() == self then
+                self:moveBy(dx, dy)
+            end
+        end)
+    end,
     -- drag за заголовок (вызывается input/dispatcher с дельтой)
     moveBy = function(self, dx, dy)
         self.x = self.x + dx

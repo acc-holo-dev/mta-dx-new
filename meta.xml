@@ -63,6 +63,7 @@
     <script src="source/client/debug/profiler.lua" type="client" cache="false" />
     <script src="source/client/boot.lua" type="client" cache="false" />
     <export function="import" type="client" />
+    <file src="hot-theme.lua" />
     <settings>
         <setting name="dxui_debug" value="#true" />
         <setting name="dxui_priority" value="#normal" />

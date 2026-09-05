@@ -127,6 +127,8 @@ def cmd_build():
             continue
         lines.append('    <script src="source/client/%s" type="client" cache="false" />' % rel)
     lines.append('    <export function="import" type="client" />')
+    # hot-reload темы (G6): клиентские file* видят только объявленные файлы
+    lines.append('    <file src="hot-theme.lua" />')
     lines.append('    <settings>')
     lines.append('        <setting name="dxui_debug" value="#true" />')
     lines.append('        <setting name="dxui_priority" value="#normal" />')
