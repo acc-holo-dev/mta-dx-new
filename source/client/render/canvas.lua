@@ -10,7 +10,11 @@
 --                                             (x, y) — якорная точка текста:
 --                                             для alignX="center" это центр по X
 --                                             (текст рисуется вокруг неё)
---   * canvas:image(tex, x, y, w, h, opts?)    opts = { rotate = r, slice = {l,t,r,b} }
+--   * canvas:image(tex, x, y, w, h, opts?)    opts = { rotate = r,
+--                                             slice = {l,t,r,b,baseW,baseH} }
+--                                             (9-slice: рамка и размеры —
+--                                             в пикселях исходника; без
+--                                             baseW/baseH — рисуется целиком)
 --   * canvas:clip(x, y, w, h) | canvas:clip() — push/pop клип-региона
 --   * canvas:clear() — сброс буфера (команды возвращаются в пул)
 --   * canvas:drain(backend) — исполнить все команды через бэкенд
