@@ -76,6 +76,7 @@ WIDGET_DIR = "widget"
 # screens.lua — ДО bundle/exports: GLUE ссылается на DXUI.screens.
 POST_WIDGETS = [
     "api/screens.lua",
+    "api/scenario.lua",
     "api/bundle.lua",
     "api/exports.lua",
     "debug/inspector.lua",

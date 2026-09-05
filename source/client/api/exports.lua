@@ -85,6 +85,7 @@ ui.registry = registry
 ui.screens = DXUI.screens
 ui.Screen = DXUI.screens
 ui.dragdrop = DXUI.dragdrop
+ui.scenario = DXUI.scenario -- дерево виджетов из данных (таблица -> узел)
 
 -- T20/T21: слоты и реактивные привязки
 ui.composition = DXUI.composition
