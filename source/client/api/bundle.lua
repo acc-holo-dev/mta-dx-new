@@ -1946,6 +1946,10 @@ end)();
 (function()
 -- render/backend_mta.lua — ЕДИНСТВЕННОЕ место dxDraw* (task.md §2 whitelist)
 --
+-- Контракт цветов: весь фреймворк передаёт числа ARGB (AARRGGBB — так
+-- записаны palette/tokens/темы). MTA ждёт ABGR (AABBGGRR) — R и B
+-- поменяны; переводим ОДНОМ месте, здесь.
+--
 -- Скругление: если радиус > 0 и шейдер скругления доступен — шейдером,
 -- с фолбэком на рисование без скругления (Auto-LOD сам отключает радиусы).
 
@@ -1960,20 +1964,24 @@ local backend = {}
 
 local clipLevels = 0 -- на случай, если платформа не поддержала клиппинг
 
--- кодировка цветов MTA: toColor не нужен — вызовы принимают число
+-- ARGB (AARRGGBB) -> MTA ABGR (AABBGGRR): обмен R и B
 local function colorArg(color)
     if color == nil then
         return 0xFFFFFFFF -- white
     end
     if type(color) == "number" then
-        return color
+        local a = math.floor(color / 0x1000000) % 0x100
+        local r = math.floor(color / 0x10000) % 0x100
+        local g = math.floor(color / 0x100) % 0x100
+        local b = color % 0x100
+        return a * 0x1000000 + b * 0x10000 + g * 0x100 + r
     end
     -- value-объект {r,g,b,a}
     local r = color.r or 255
     local g = color.g or 255
     local b = color.b or 255
     local a = color.a or 255
-    return a * 0x1000000 + math.floor(r * 0x10000) + math.floor(g * 0x100) + math.floor(b)
+    return a * 0x1000000 + b * 0x10000 + g * 0x100 + r
 end
 
 function backend:rect(x, y, w, h, color, radius)
@@ -1988,17 +1996,20 @@ end
 
 function backend:text(str, x, y, font, color)
     local c = colorArg(color)
-    dxDrawText(tostring(str), x, y, x, y, c, 1.0, font or "default", "left", "top", false, false, false, true)
+    -- коробка большая (clip = false — она не клиппит): alignX/alignY
+    -- относительно коробки, вырожденная коробка в точку рискованна
+    dxDrawText(tostring(str), x, y, x + 10000, y + 10000, c, 1.0, font or "default", "left", "top", false, false, false, true)
 end
 
 function backend:image(tex, x, y, w, h, rotate, slice)
+    -- MTA: dxDrawImage(x, y, w, h, tex, sourceX, sourceY, sourceW, sourceH, rotate)
     if slice then
         -- TODO(G4+): 9-slice секциями (координаты секций — в пикселях текстуры,
         -- требуется размер исходника из theme/assets); пока рисуем целиком
-        dxDrawImage(x, y, w, h, tex, 0, 0, 0, true, rotate or 0)
+        dxDrawImage(x, y, w, h, tex, 0, 0, 0, 0, rotate or 0)
         return
     end
-    dxDrawImage(x, y, w, h, tex, 0, 0, 0, true, rotate or 0)
+    dxDrawImage(x, y, w, h, tex, 0, 0, 0, 0, rotate or 0)
 end
 
 function backend:clipPush(x, y, w, h)
