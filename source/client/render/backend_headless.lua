@@ -37,6 +37,11 @@ function backend.counters()
     return counters
 end
 
+-- последняя исполненная команда (для тестов: поля по kind)
+function backend.lastCommand()
+    return last
+end
+
 -- валидация команд в headless: плохая команда не падает, но считается ошибкой
 local function validNumber(v)
     return type(v) == "number"

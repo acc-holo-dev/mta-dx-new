@@ -1,15 +1,63 @@
 -- render/frame.lua — пайплайн кадра виджетов
 --
 -- Кадр (порядок фиксирован, task.md §1):
+--   0. flush dirty-списков: грязные узлы помечают RT-кэши предков устаревшими
+--      (dirty-списки потребляет только пайплайн — иначе они не сбрасываются);
 --   1. layout: рекурсивная пасса раскладки корней (flex/anchors);
 --   2. render: рекурсивный обход с накоплением мировых координат;
 --      каждый виджет рисует через spec.render(widget, canvas, wx, wy).
 -- Развилки (scroll, clip) используют lay, проходя транзитом.
+--
+-- RT-кэш (§6.1): у виджета с cache=true поддерево растеризуется в текстуру
+-- (backend.renderToTexture) и дальше в кадре — одна image-команда. Кэш
+-- пересобирается при: грязном узле в поддереве (flush ниже), смене размера
+-- (rtW/rtH), отсутствии текстуры. Вложенные кэши внутри кэша рисуются
+-- напрямую (rtDepth > 0). Текстуры освобождаются остановкой ресурса MTA:
+-- destroyElement вне whitelist (§2), ручного release нет.
 
 local DXUI = _G.DXUI
 
 local frame = {}
 local roots = {}
+
+local cacheBackend = nil  -- fn(w, h, sceneFn) -> texture | nil (тесты)
+local mtaAdapter = nil    -- ленивая обёртка backend_mta (контракт (sceneFn,w,h))
+local cacheCanvas = nil   -- ленивый scratch для перерастеризации
+local rtDepth = 0         -- глубина вложенного RT (вложенные кэши — напрямую)
+
+-- тесты подставляют фейк; в игре берётся DXUI.backend_mta.renderToTexture
+function frame.setCacheBackend(fn)
+    cacheBackend = fn
+end
+
+local function getCacheBackend()
+    if cacheBackend then
+        return cacheBackend
+    end
+    if mtaAdapter == nil then
+        local b = DXUI.backend_mta
+        if b == nil or b.renderToTexture == nil then
+            return nil
+        end
+        mtaAdapter = function(w, h, sceneFn)
+            return b.renderToTexture(sceneFn, w, h)
+        end
+    end
+    return mtaAdapter
+end
+
+-- грязный узел помечает устаревшими кэши себя и всех предков
+local function markCacheStale(node)
+    local cur = node
+    while cur do
+        local inod = rawget(cur, "_")
+        if inod == nil then return end
+        if inod.data.cache == true then
+            inod.rtStale = true
+        end
+        cur = inod.parent
+    end
+end
 
 local function layoutNode(node)
     local inod = rawget(node, "_")
@@ -60,6 +108,38 @@ local function renderNode(node, canvas, ox, oy)
 
     if inod.data.visible == false then
         return -- заморозка скрытых поддеревьев (task.md §6.1)
+    end
+
+    -- RT-кэш: чистое поддерево = одна image-команда вместо обхода
+    if inod.data.cache == true and rtDepth == 0 and not inod.rtRendering then
+        local backend = getCacheBackend()
+        if backend then
+            local rt = inod.rt
+            if rt == nil or inod.rtStale or inod.rtW ~= l.w or inod.rtH ~= l.h then
+                inod.rtStale = false
+                inod.rtW, inod.rtH = l.w, l.h
+                if cacheCanvas == nil then
+                    cacheCanvas = DXUI.canvas.new()
+                end
+                cacheCanvas:clear()
+                inod.rtRendering = true
+                rtDepth = rtDepth + 1
+                local ok, tex = pcall(backend, l.w, l.h, function()
+                    renderNode(node, cacheCanvas, -wx, -wy)
+                end)
+                rtDepth = rtDepth - 1
+                inod.rtRendering = false
+                if ok and tex then
+                    inod.rt = tex
+                else
+                    inod.rt = nil -- бэкенд не смог (видеопамять) — рисуем напрямую
+                end
+            end
+            if inod.rt then
+                canvas:image(inod.rt, wx, wy, l.w, l.h)
+                return
+            end
+        end
     end
 
     if spec and spec.render then
@@ -125,8 +205,12 @@ function frame.clear()
     end
 end
 
--- полный кадр: раскладка всех корней + отрисовка в canvas
+-- полный кадр: flush dirty-списков -> раскладка корней -> отрисовка в canvas
 function frame.run(canvas)
+    -- грязные узлы помечают кэши предков устаревшими (§6.1); списки пустеют
+    local prop = DXUI.prop
+    prop.flush(prop.DIRTY.RENDER, markCacheStale)
+    prop.flush(prop.DIRTY.LAYOUT, markCacheStale)
     for i = 1, #roots do
         layoutNode(roots[i])
     end

@@ -32,6 +32,10 @@ function base.schema()
             type = "boolean", default = true, invalidates = { DIRTY.RENDER },
             doc = "Видимость виджета",
         },
+        cache = {
+            type = "boolean", default = false, invalidates = { DIRTY.RENDER },
+            doc = "RT-кэш поддерева: растеризуется в текстуру и не перерисовывается, пока чисто (§6.1)",
+        },
     }
 end
 
