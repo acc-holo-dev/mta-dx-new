@@ -60,6 +60,9 @@ ui.Window {
 |---|---|
 | `ui.Screen` / `ui.screens` | Screen Stack (§3.8): `push(root, opts?)` / `pop(opts?)` / `current()` / `depth()` / `clear(opts?)`; переход `opts.transition = "slide"`; возврат восстанавливает фокус; `saveLayout()` → XML-строка (окна + палитра), `loadLayout(xml)` |
 | `ui.dragdrop` | Drag-and-drop (§4.3): `setSource(node, payload)`, `registerTarget(node, slots)` (nil — вся площадь; `{ {id,x,y,w,h}, … }` — слоты в локальных координатах), `unregister(node)`, `active()` — пара для инспектора. Сигналы: источник `dragStart`/`dragEnd(accepted, target, slot)`; цель `dragEnter`/`dragOver`/`dragLeave`/`drop` |
+| `ui.observable` / `ui.bind` | Реактивные ячейки (T21): `observable(initial)` → `get/set/subscribe`; `bind(widget, { prop = obs })` — мост в свойства виджета, `handle:disconnect()` |
+| `ui.composition` | Слоты виджетов (T20): `setSlot(widget, name, child)`, `childBySlot(widget, name)` |
+| `ui.destroyAll` | Полный демонтаж инстанса потребителя (T36): корни, фокус, твины, стек экранов; зовётся из `onClientResourceStop` |
 | `ui.animation` / `ui.theme` / `ui.registry` | твины, темы, реестр виджетов |
 
 ## Миграция с DGS (§9.3)
@@ -81,6 +84,6 @@ ui.Window {
 
 ## Тесты
 
-`python dxui.py test` — 135 headless-тестов, включая бюджеты из §6.2
+`python dxui.py test` — 140 headless-тестов, включая бюджеты из §6.2
 (1000 виджетов ≤ 2 мс, GridList 10 000 строк ≤ 2 мс, смена темы 300 виджетов ≤ 5 мс,
 hit-test ≥ 20× линейного перебора).
