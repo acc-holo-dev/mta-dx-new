@@ -264,10 +264,12 @@ def lint_widget_docs(errors):
 
 
 def lint_widget_specs(errors):
-    """Каждый файл виджета: name + render обязательны."""
+    """Каждый файл виджета: name + render обязательны. Helper-модули
+    слоя (не виджеты) — в исключении, как palette.lua."""
+    helpers = {"palette.lua", "binding.lua", "composition.lua"}
     wdir = os.path.join(SOURCE, WIDGET_DIR)
     for name in sorted(os.listdir(wdir)):
-        if not name.endswith(".lua") or name == "palette.lua":
+        if not name.endswith(".lua") or name in helpers:
             continue
         with open(os.path.join(wdir, name), "r", encoding="utf-8") as f:
             text = f.read()

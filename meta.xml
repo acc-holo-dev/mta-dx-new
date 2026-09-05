@@ -36,9 +36,11 @@
     <script src="source/client/anim/easing.lua" type="client" cache="false" />
     <script src="source/client/anim/tween.lua" type="client" cache="false" />
     <script src="source/client/widget/palette.lua" type="client" cache="false" />
+    <script src="source/client/widget/binding.lua" type="client" cache="false" />
     <script src="source/client/widget/button.lua" type="client" cache="false" />
     <script src="source/client/widget/checkbox.lua" type="client" cache="false" />
     <script src="source/client/widget/combobox.lua" type="client" cache="false" />
+    <script src="source/client/widget/composition.lua" type="client" cache="false" />
     <script src="source/client/widget/contextmenu.lua" type="client" cache="false" />
     <script src="source/client/widget/edit.lua" type="client" cache="false" />
     <script src="source/client/widget/gridlist.lua" type="client" cache="false" />

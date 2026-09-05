@@ -86,6 +86,40 @@ ui.screens = DXUI.screens
 ui.Screen = DXUI.screens
 ui.dragdrop = DXUI.dragdrop
 
+-- T20/T21: слоты и реактивные привязки
+ui.composition = DXUI.composition
+ui.observable = DXUI.binding.observable
+ui.bind = DXUI.binding.bind
+
+-- ---------------------------------------------------------------- cleanup (T36)
+-- Каждый потребитель — отдельная Lua VM, поэтому изоляция инстансов
+-- достигается автоматически: с остановкой ресурса умирают и его обработчики,
+-- и весь Lua-стейт. destroyAll нужен для явного ручного демонтажа
+-- (и зовётся из onClientResourceStop по контракту T36).
+
+local function destroyAll()
+    -- экраны снимаем без destroy — их корни добьём ниже в общем цикле
+    DXUI.screens.clear({ destroy = false })
+    local roots = frame.roots()
+    for i = #roots, 1, -1 do
+        local r = roots[i]
+        frame.remove(r)
+        if r.destroy then
+            r:destroy()
+        end
+    end
+    DXUI.focus.clear()
+    DXUI.tween.clear()
+end
+
+ui.destroyAll = destroyAll
+
+-- resourceRoot в MTA — корень СВОЕГО ресурса (потребителя); вне MTA
+-- (headless-песочницы) его нет — там обработчик просто не регистрируется
+if resourceRoot then
+    addEventHandler("onClientResourceStop", resourceRoot, destroyAll)
+end
+
 return ui
 ]==]
 
