@@ -3,7 +3,7 @@
     <!--
         Демо-ресурс DXUI v2 (task.md §9.2). Только фасад import(2).
         Запуск в игре:
-          /dxuidemo <login|inventory|hud|bank|themes|off>
+          /dxuidemo <login|inventory|hud|bank|themes|screens|off>
     -->
     <include resource="dxui" />
     <script src="login.lua" type="client" />
